@@ -1,3 +1,6 @@
 
 Nota dia 27/11/2025 - Atualização de correção e melhoria.
 Modificações realizadas: agora temos um novo tipo de usuário, chamado Servidor. Ele só poderá criar e modificar eventos; não poderá excluir usuários ou eventos, e também não poderá gerar QR Codes. A barra de busca de usuários funcionará pelo nome. O método de upload de imagens foi remodelado: agora é possível ver a imagem adicionada como capa. Também é possível excluir usuários, mas somente o Administrador (ADM) pode realizar esse ajuste. Ao modificar eventos, é possível verificar o rótulo (nome) acima do campo; agora, a capacidade antiga também aparecerá para ser modificada.
+
+
+Também adicionado o banco de dados no commit - Banco atualizado com reviews.
