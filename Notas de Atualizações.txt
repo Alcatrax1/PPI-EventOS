@@ -1,6 +1,69 @@
+Nota dia 24/11/2025 - Estruturação Inicial e Painel Administrativo
+Modificações realizadas:
 
-Nota dia 27/11/2025 - Atualização de correção e melhoria.
-Modificações realizadas: agora temos um novo tipo de usuário, chamado Servidor. Ele só poderá criar e modificar eventos; não poderá excluir usuários ou eventos, e também não poderá gerar QR Codes. A barra de busca de usuários funcionará pelo nome. O método de upload de imagens foi remodelado: agora é possível ver a imagem adicionada como capa. Também é possível excluir usuários, mas somente o Administrador (ADM) pode realizar esse ajuste. Ao modificar eventos, é possível verificar o rótulo (nome) acima do campo; agora, a capacidade antiga também aparecerá para ser modificada.
+Frontend (Visual): Reformulação completa do layout do Perfil do Usuário, adicionando banner de capa, avatar com iniciais e estatísticas de eventos.
 
+Painel Admin: Criação do Dashboard Administrativo com contadores reais (conectados ao banco) para Eventos, Check-ins e Usuários totais.
 
-Também adicionado o banco de dados no commit - Banco atualizado com reviews.
+Backend (PHP): Implementação da conexão segura via PDO (db_connect.php) para substituir o método antigo inseguro.
+
+Gestão de Usuários: Adicionada a funcionalidade inicial para promover ou rebaixar usuários entre "Admin" e "Comum" através de uma tabela dinâmica no painel.
+
+Banco de Dados:
+
+Criação inicial das tabelas users, events e enrollments.
+
+Inserção do usuário "Super Admin" padrão.
+
+Nota dia 25/11/2025 - Sistema de Check-in e Certificados
+Modificações realizadas:
+
+Scanner QR: Integração da câmera para leitura de QR Codes. Agora, ao escanear o código, o sistema valida o usuário e registra a presença automaticamente no banco.
+
+Lógica de Certificado: Implementação da regra de negócio de 75% de presença. O certificado só é liberado se o aluno cumprir a carga horária (ex: em um evento de 3 dias, precisa de 3 check-ins).
+
+Design: Criação do Certificado Premium (modal com bordas douradas e selo de autenticidade) e geração de um QR Code de validação único para cada certificado emitido.
+
+Correção: Ajuste na função loadMyEvents para passar o ID correto do evento ao solicitar o certificado.
+
+Banco de Dados:
+
+Adição da coluna required_checkins na tabela events para definir a duração do evento.
+
+Criação da tabela checkins para log de presença.
+
+Nota dia 26/11/2025 - Integração de Pagamentos e Fluxo de Inscrição
+Modificações realizadas:
+
+Mercado Pago (Pix): Integração completa com a API de pagamentos. Agora o sistema gera um QR Code Pix real (Copia e Cola) e verifica o status do pagamento a cada 5 segundos.
+
+UX de Inscrição: Substituição do botão simples por um Modal de Detalhes (Card Roxo), exibindo preço, local e descrição antes da compra.
+
+Meus Ingressos: Implementação de status visual nos cards:
+
+🟡 Pendente: Exibe botão "Pagar Agora" e bloqueia o certificado.
+
+🟢 Confirmado: Libera o botão "Certificado".
+
+Segurança: Criação do arquivo config_mp.php isolado para proteger o Token de Acesso e configuração do .gitignore para não subir credenciais para o repositório.
+
+Banco de Dados:
+
+Alteração na tabela enrollments para incluir colunas financeiras: payment_id, pix_code, payment_status e ticket_token.
+
+Nota dia 27/11/2025 (Manhã) - Segurança Anti-Fraude e Avaliações
+Modificações realizadas:
+
+QR Code Dinâmico: O QR Code projetado pelo Admin agora muda seu token criptografado a cada 30 segundos, impedindo que alunos tirem fotos para passar para colegas (anti-fraude).
+
+Sistema de Reviews: Adicionada a funcionalidade de Avaliação com Estrelas. Alunos que concluíram eventos passados podem deixar uma nota (1 a 5) e um comentário. A média das notas aparece na capa do evento.
+
+Refinamento de Código: Limpeza geral do script.js, removendo funções duplicadas e unificando a lógica de renderização.
+
+Cancelamento: Adicionado o botão de Lixeira (Cancelar Inscrição) na área do aluno, permitindo desistência de eventos e limpeza do banco.
+
+Banco de Dados:
+
+Criação da tabela reviews para armazenar comentários e notas.
+
+Adição das colunas qr_token e qr_expires_at na tabela events para a lógica de segurança rotativa.
