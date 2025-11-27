@@ -9,11 +9,6 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
-if (empty($_POST['name']) || empty($_POST['date'])) {
-    echo json_encode(["success" => false, "message" => "Nome e Data são obrigatórios."]);
-    exit;
-}
-
 try {
     $name = $_POST['name'];
     $description = $_POST['description'] ?? '';
@@ -22,22 +17,25 @@ try {
     $price = $_POST['price'] ?? 0;
     $days = $_POST['required_checkins'] ?? 1;
     
+    // NOVO: Recebe a capacidade
+    $capacity = $_POST['capacity'] ?? 50; 
+
+    // Lógica de Imagem (Mantida igual)
     $imageUrl = ''; 
     if (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
         $uploadDir = 'uploads/';
-        if (!is_dir($uploadDir)) mkdir($uploadDir, 0777, true); 
-        
+        if (!is_dir($uploadDir)) mkdir($uploadDir, 0777, true);
         $ext = pathinfo($_FILES['image']['name'], PATHINFO_EXTENSION);
         $fileName = 'evt_' . time() . '_' . rand(1000,9999) . '.' . $ext;
-        $targetFile = $uploadDir . $fileName;
-
-        if (move_uploaded_file($_FILES['image']['tmp_name'], $targetFile)) {
-            $imageUrl = $targetFile; 
+        if (move_uploaded_file($_FILES['image']['tmp_name'], $uploadDir . $fileName)) {
+            $imageUrl = $uploadDir . $fileName; 
         }
     }
 
-    $stmt = $conn->prepare("INSERT INTO events (name, description, date, location, price, image_url, required_checkins) VALUES (?, ?, ?, ?, ?, ?, ?)");
-    $stmt->execute([$name, $description, $dateTime, $location, $price, $imageUrl, $days]);
+    // SQL ATUALIZADO com 'capacity'
+    $stmt = $conn->prepare("INSERT INTO events (name, description, date, location, price, image_url, required_checkins, capacity) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+    
+    $stmt->execute([$name, $description, $dateTime, $location, $price, $imageUrl, $days, $capacity]);
 
     echo json_encode(["success" => true, "message" => "Evento criado!"]);
 

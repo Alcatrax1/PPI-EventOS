@@ -216,8 +216,7 @@
         <section id="page-admin-dashboard" class="page-section">
             <div class="bg-gray-900 text-white py-12 px-4">
                 <div class="max-w-7xl mx-auto">
-                    <h1 class="text-3xl font-bold">Painel Admin</h1>
-                    <p class="text-gray-400 text-sm">Visão geral do sistema</p>
+<h1 class="text-3xl font-bold" id="dashboard-title">Painel Admin</h1>                    <p class="text-gray-400 text-sm">Visão geral do sistema</p>
                 </div>
             </div>
             <div class="max-w-7xl mx-auto px-4 -mt-8 pb-20">
@@ -255,123 +254,125 @@
                         </div>
                     </div>
                 </div>
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+    <button id="btn-dash-create" onclick="navigateTo('admin-event-form')" class="bg-white p-8 rounded-2xl shadow hover:shadow-xl hover:-translate-y-1 transition-all font-bold text-lg flex flex-col items-center gap-4 group">
+        <div class="p-4 bg-blue-50 rounded-full group-hover:bg-blue-100 transition-colors"><i data-lucide="plus" class="w-8 h-8 text-blue-600"></i></div>
+        Criar Evento
+    </button>
+    
+    <button id="btn-dash-qr" onclick="navigateTo('admin-qrcode')" class="bg-white p-8 rounded-2xl shadow hover:shadow-xl hover:-translate-y-1 transition-all font-bold text-lg flex flex-col items-center gap-4 group">
+        <div class="p-4 bg-purple-50 rounded-full group-hover:bg-purple-100 transition-colors"><i data-lucide="qr-code" class="w-8 h-8 text-purple-600"></i></div>
+        Gerar QR do Evento
+    </button>
 
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <button onclick="navigateTo('admin-event-form')"
-                        class="bg-white p-8 rounded-2xl shadow hover:shadow-xl hover:-translate-y-1 transition-all font-bold text-lg flex flex-col items-center gap-4 group">
-                        <div class="p-4 bg-blue-50 rounded-full group-hover:bg-blue-100 transition-colors"><i
-                                data-lucide="plus" class="w-8 h-8 text-blue-600"></i></div>
-                        Criar Evento
-                    </button>
+    <button id="btn-dash-users" onclick="navigateTo('admin-users')" class="bg-white p-8 rounded-2xl shadow hover:shadow-xl hover:-translate-y-1 transition-all font-bold text-lg flex flex-col items-center gap-4 group">
+        <div class="p-4 bg-yellow-50 rounded-full group-hover:bg-yellow-100 transition-colors"><i data-lucide="users" class="w-8 h-8 text-yellow-600"></i></div>
+        Gerenciar Usuários
+    </button>
 
-                    <button onclick="navigateTo('admin-qrcode')"
-                        class="bg-white p-8 rounded-2xl shadow hover:shadow-xl hover:-translate-y-1 transition-all font-bold text-lg flex flex-col items-center gap-4 group">
-                        <div class="p-4 bg-purple-50 rounded-full group-hover:bg-purple-100 transition-colors"><i
-                                data-lucide="qr-code" class="w-8 h-8 text-purple-600"></i></div>
-                        Gerar QR do Evento
-                    </button>
-
-                    <button onclick="navigateTo('admin-users')"
-                        class="bg-white p-8 rounded-2xl shadow hover:shadow-xl hover:-translate-y-1 transition-all font-bold text-lg flex flex-col items-center gap-4 group">
-                        <div class="p-4 bg-yellow-50 rounded-full group-hover:bg-yellow-100 transition-colors"><i
-                                data-lucide="users" class="w-8 h-8 text-yellow-600"></i></div>
-                        Gerenciar Usuários
-                    </button>
-
-                    <button onclick="navigateTo('admin-stats')"
-                        class="bg-white p-8 rounded-2xl shadow hover:shadow-xl hover:-translate-y-1 transition-all font-bold text-lg flex flex-col items-center gap-4 group">
-                        <div class="p-4 bg-green-50 rounded-full group-hover:bg-green-100 transition-colors"><i
-                                data-lucide="bar-chart-3" class="w-8 h-8 text-green-600"></i></div>
-                        Relatórios
-                    </button>
-                </div>
+    <button id="btn-dash-stats" onclick="navigateTo('admin-stats')" class="bg-white p-8 rounded-2xl shadow hover:shadow-xl hover:-translate-y-1 transition-all font-bold text-lg flex flex-col items-center gap-4 group">
+        <div class="p-4 bg-green-50 rounded-full group-hover:bg-green-100 transition-colors"><i data-lucide="bar-chart-3" class="w-8 h-8 text-green-600"></i></div>
+        Relatórios
+    </button>
+</div>
 
                 <div class="mt-10">
                     <h3 class="text-xl font-bold mb-4">Eventos Recentes</h3>
                     <div id="admin-events-list" class="space-y-3"></div>
                 </div>
             </div>
-        </section>
-        <section id="page-admin-event-form" class="page-section">
-            <div class="max-w-3xl mx-auto px-4 py-12">
+        </section><section id="page-admin-event-form" class="page-section">
+    <div class="max-w-3xl mx-auto px-4 py-12">
+        
+        <button type="button" onclick="cancelEventForm()" class="text-gray-500 mb-6 flex gap-2 items-center hover:text-brand-600 font-medium cursor-pointer transition-colors">
+            <i data-lucide="arrow-left" class="w-5 h-5"></i> Voltar / Cancelar
+        </button>
 
-                <button type="button" onclick="cancelEventForm()"
-                    class="text-gray-500 mb-6 flex gap-2 items-center hover:text-brand-600 font-medium cursor-pointer transition-colors">
-                    <i data-lucide="arrow-left" class="w-5 h-5"></i> Voltar / Cancelar
-                </button>
-
-                <div class="bg-white p-8 rounded-2xl shadow-xl border border-gray-100">
-                    <h2 class="text-2xl font-bold mb-6 text-gray-900">Cadastrar Novo Evento</h2>
-                    <form onsubmit="handleEventSubmit(event)" class="space-y-5">
-
-                        <input id="evt-name"
-                            class="w-full border border-gray-200 p-4 rounded-xl bg-gray-50 focus:bg-white focus:ring-2 focus:ring-brand-500 outline-none transition-all"
-                            placeholder="Nome do Evento" required>
-
-                        <textarea id="evt-desc"
-                            class="w-full border border-gray-200 p-4 rounded-xl bg-gray-50 focus:bg-white focus:ring-2 focus:ring-brand-500 outline-none transition-all"
-                            rows="3" placeholder="Descrição detalhada"></textarea>
-
-                        <div class="grid grid-cols-2 gap-4">
-                            <input type="date" id="evt-date"
-                                class="border border-gray-200 p-4 rounded-xl bg-gray-50 focus:bg-white outline-none"
-                                required>
-                            <input type="time" id="evt-time"
-                                class="border border-gray-200 p-4 rounded-xl bg-gray-50 focus:bg-white outline-none"
-                                required>
-                        </div>
-
-                        <div class="bg-blue-50 p-4 rounded-xl border border-blue-100">
-                            <label class="block text-sm font-bold text-blue-800 mb-1">Quantos Check-ins são
-                                necessários?</label>
-                            <div class="flex items-center gap-3">
-                                <input type="number" id="evt-days"
-                                    class="w-24 border border-blue-200 p-3 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 outline-none text-center font-bold text-lg"
-                                    value="1" min="1" placeholder="1">
-                                <div class="text-sm text-blue-600 leading-tight">
-                                    <p>Se o evento dura 3 dias, coloque <strong>3</strong>.</p>
-                                    <p class="text-xs opacity-75">O aluno precisará de 3 presenças para o certificado.
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <input id="evt-loc"
-                            class="w-full border border-gray-200 p-4 rounded-xl bg-gray-50 focus:bg-white outline-none"
-                            placeholder="Localização" required>
-
-                        <div class="grid grid-cols-2 gap-4">
-                            <input type="number" id="evt-cap"
-                                class="w-full border border-gray-200 p-4 rounded-xl bg-gray-50 focus:bg-white outline-none"
-                                placeholder="Capacidade">
-                            <div class="relative">
-                                <span class="absolute left-4 top-4 text-gray-500 font-bold">R$</span>
-                                <input type="number" id="evt-price"
-                                    class="w-full pl-12 p-4 border border-gray-200 rounded-xl bg-gray-50 focus:bg-white outline-none"
-                                    placeholder="0.00" step="0.01">
-                            </div>
-                        </div>
-
-                        <div
-                            class="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:bg-gray-50 transition cursor-pointer relative">
-                            <input type="file" id="evt-img-file" accept="image/*"
-                                class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
-                            <div class="flex flex-col items-center gap-2 pointer-events-none">
-                                <div class="bg-brand-50 p-3 rounded-full text-brand-600">
-                                    <i data-lucide="upload-cloud" class="w-6 h-6"></i>
-                                </div>
-                                <span class="font-bold text-gray-600 text-sm">Clique para enviar uma imagem</span>
-                                <span class="text-xs text-gray-400">JPG, PNG ou WEBP (Do seu computador)</span>
-                            </div>
-                        </div>
-
-                        <button
-                            class="w-full bg-brand-600 text-white py-4 rounded-xl font-bold text-lg shadow-lg hover:bg-brand-700 transition-all">Publicar
-                            Evento</button>
-                    </form>
+        <div class="bg-white p-8 rounded-2xl shadow-xl border border-gray-100">
+            <h2 class="text-2xl font-bold mb-6 text-gray-900">Gerenciar Evento</h2>
+            
+            <form onsubmit="handleEventSubmit(event)" class="space-y-6">
+                
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-1">Nome do Evento</label>
+                    <input id="evt-name" class="w-full border border-gray-200 p-4 rounded-xl bg-gray-50 focus:bg-white focus:ring-2 focus:ring-brand-500 outline-none transition-all" placeholder="Ex: Workshop de Tecnologia" required>
                 </div>
-            </div>
-        </section>
+                
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-1">Descrição Detalhada</label>
+                    <textarea id="evt-desc" class="w-full border border-gray-200 p-4 rounded-xl bg-gray-50 focus:bg-white focus:ring-2 focus:ring-brand-500 outline-none transition-all" rows="3" placeholder="Sobre o que é o evento..."></textarea>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">Data</label>
+                        <input type="date" id="evt-date" class="w-full border border-gray-200 p-4 rounded-xl bg-gray-50 focus:bg-white outline-none" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">Horário</label>
+                        <input type="time" id="evt-time" class="w-full border border-gray-200 p-4 rounded-xl bg-gray-50 focus:bg-white outline-none" required>
+                    </div>
+                </div>
+
+                <div class="bg-blue-50 p-4 rounded-xl border border-blue-100">
+                    <label class="block text-sm font-bold text-blue-800 mb-1">Duração (Dias/Check-ins)</label>
+                    <div class="flex items-center gap-3">
+                        <input type="number" id="evt-days" class="w-24 border border-blue-200 p-3 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 outline-none text-center font-bold text-lg" 
+                               value="1" min="1" placeholder="1">
+                        <div class="text-sm text-blue-600 leading-tight">
+                            <p>Quantidade de presenças para 100%.</p>
+                            <p class="text-xs opacity-75">Ex: Evento de 3 dias = coloque 3.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-1">Localização</label>
+                    <input id="evt-loc" class="w-full border border-gray-200 p-4 rounded-xl bg-gray-50 focus:bg-white outline-none" placeholder="Ex: Auditório A ou Online" required>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">Capacidade</label>
+                        <input type="number" id="evt-cap" class="w-full border border-gray-200 p-4 rounded-xl bg-gray-50 focus:bg-white outline-none" placeholder="Ex: 100">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">Preço (R$)</label>
+                        <div class="relative">
+                            <span class="absolute left-4 top-4 text-gray-500 font-bold">R$</span>
+                            <input type="number" id="evt-price" class="w-full pl-12 p-4 border border-gray-200 rounded-xl bg-gray-50 focus:bg-white outline-none" placeholder="0.00" step="0.01">
+                        </div>
+                    </div>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-1">Capa do Evento</label>
+                    <div class="border-2 border-dashed border-gray-300 rounded-xl h-64 relative flex items-center justify-center bg-gray-50 overflow-hidden hover:bg-gray-100 transition group">
+                        
+                        <input type="file" id="evt-img-file" accept="image/*" 
+                            class="absolute inset-0 w-full h-full opacity-0 z-20 cursor-pointer" 
+                            onchange="previewImage(this)">
+
+                        <div id="upload-ui" class="text-center pointer-events-none flex flex-col items-center transition-opacity duration-300">
+                            <div class="bg-white p-4 rounded-full shadow-sm mb-3 group-hover:scale-110 transition-transform">
+                                <i data-lucide="image-plus" class="w-8 h-8 text-brand-600"></i>
+                            </div>
+                            <p class="text-sm font-bold text-gray-600">Clique para adicionar imagem</p>
+                            <p class="text-xs text-gray-400 mt-1">JPG, PNG ou WEBP</p>
+                            <p id="file-name-display" class="text-xs text-brand-600 font-bold mt-2 hidden"></p>
+                        </div>
+
+                        <img id="image-preview" src="" class="absolute inset-0 w-full h-full object-contain hidden z-10 bg-gray-100">
+                    </div>     
+                </div>           
+                
+                <button class="w-full bg-brand-600 text-white py-4 rounded-xl font-bold text-lg shadow-lg hover:bg-brand-700 transition-all">
+                    Publicar Evento
+                </button>
+            </form>
+        </div>
+    </div>
+</section>
 
         <section id="page-admin-qrcode" class="page-section">
             <div class="max-w-4xl mx-auto px-4 py-12">
@@ -726,6 +727,32 @@
             </div>
         </div>
     </div>
+    <div id="review-modal" class="fixed inset-0 bg-black/80 hidden items-center justify-center z-[100] p-4 backdrop-blur-sm">
+    <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl p-6 relative animate-up">
+        <button onclick="closeReviewModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+            <i data-lucide="x" class="w-6 h-6"></i>
+        </button>
+
+        <div class="text-center mb-6">
+            <h3 class="text-2xl font-bold text-gray-900">Avaliar Evento</h3>
+            <p class="text-gray-500 text-sm">O que você achou da experiência?</p>
+        </div>
+
+        <div class="flex justify-center gap-2 mb-6">
+            <button onclick="setRating(1)" class="star-btn text-gray-300 hover:text-yellow-400 transition"><i data-lucide="star" class="w-8 h-8 fill-current"></i></button>
+            <button onclick="setRating(2)" class="star-btn text-gray-300 hover:text-yellow-400 transition"><i data-lucide="star" class="w-8 h-8 fill-current"></i></button>
+            <button onclick="setRating(3)" class="star-btn text-gray-300 hover:text-yellow-400 transition"><i data-lucide="star" class="w-8 h-8 fill-current"></i></button>
+            <button onclick="setRating(4)" class="star-btn text-gray-300 hover:text-yellow-400 transition"><i data-lucide="star" class="w-8 h-8 fill-current"></i></button>
+            <button onclick="setRating(5)" class="star-btn text-gray-300 hover:text-yellow-400 transition"><i data-lucide="star" class="w-8 h-8 fill-current"></i></button>
+        </div>
+
+        <textarea id="review-comment" class="w-full border border-gray-200 rounded-xl p-4 mb-4 focus:ring-2 focus:ring-brand-500 outline-none" rows="3" placeholder="Deixe um comentário (opcional)..."></textarea>
+
+        <button onclick="submitReview()" class="w-full bg-brand-600 text-white py-3 rounded-xl font-bold hover:bg-brand-700 transition shadow-lg">
+            Enviar Avaliação
+        </button>
+    </div>
+</div>
     <script src="script.js?v=2"></script>
 </body>
 

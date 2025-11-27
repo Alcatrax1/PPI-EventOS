@@ -8,7 +8,7 @@ $pid = $_GET['payment_id'] ?? null;
 
 if (!$pid) { echo json_encode(['status'=>'error']); exit; }
 
-// 1. Consulta Mercado Pago
+//  Consulta Mercado Pago
 $ch = curl_init('https://api.mercadopago.com/v1/payments/' . $pid);
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 curl_setopt($ch, CURLOPT_HTTPHEADER, ['Authorization: Bearer ' . MP_ACCESS_TOKEN]);
@@ -17,7 +17,7 @@ curl_close($ch);
 
 $status = $mp_res->status ?? 'pending';
 
-// 2. Se aprovou, atualiza o banco
+//  Se aprovou, atualiza o banco
 if ($status === 'approved') {
     // Gera um token de ingresso se não tiver
     $token = strtoupper(substr(md5(uniqid()), 0, 8));

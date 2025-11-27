@@ -2,92 +2,78 @@ const state = {
     user: JSON.parse(localStorage.getItem('user')) || null,
     events: [],
     enrollments: [],
+    usersList: [],
     paymentTimer: null,
-    scanner: null,
-    usersList: []
+    scanner: null
 };
 
-let currentEditId = null;
+let currentEditId = null; 
+
 window.addEventListener('DOMContentLoaded', async () => {
     lucide.createIcons();
-
     await fetchEvents();
 
-    if (state.user) {
+    if(state.user) {
         await fetchUserEnrollments(); 
- 
-        const startPage = state.user.role === 'admin' ? 'admin-dashboard' : 'dashboard';
-        navigateTo(startPage);
+        const isStaff = state.user.role === 'admin' || state.user.role === 'servidor';
+        navigateTo(isStaff ? 'admin-dashboard' : 'home');
     } else {
         navigateTo('home');
     }
 });
-async function fetchUserEnrollments() {
-    if (!state.user) return;
 
-    try {
-        const res = await fetch(`api_my_events.php?user_id=${state.user.id}`);
-        const data = await res.json();
-
-        state.enrollments = Array.isArray(data) ? data : [];
-
-        console.log("Inscrições recuperadas:", state.enrollments);
-    } catch (err) {
-        console.error("Erro ao buscar inscrições:", err);
-        state.enrollments = [];
-    }
-}
 async function fetchEvents() {
     try {
         const res = await fetch('api_eventos.php');
-        const data = await res.json();
-        state.events = Array.isArray(data) ? data : [];
-    } catch (err) {
-        state.events = [];
-    }
+        state.events = await res.json();
+    } catch (err) { state.events = []; }
+}
+
+async function fetchUserEnrollments() {
+    if (!state.user) return;
+    try {
+        const res = await fetch(`api_my_events.php?user_id=${state.user.id}`);
+        state.enrollments = await res.json();
+    } catch (err) { state.enrollments = []; }
 }
 
 async function handleAuth(e) {
     e.preventDefault();
     const email = document.getElementById('input-email').value;
     const password = document.getElementById('input-password').value;
-    const nameField = document.getElementById('field-name');
-    const isRegister = !nameField.classList.contains('hidden');
+    const isRegister = !document.getElementById('field-name').classList.contains('hidden');
     const url = isRegister ? 'api_register.php' : 'api_login.php';
-
+    
     const btn = document.getElementById('auth-btn-text');
-    const originalText = btn.innerText;
     btn.innerText = "Processando...";
 
     try {
-        const res = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                email,
-                password,
-                name: isRegister ? document.getElementById('auth-input-name').value : ''
-            })
-        });
+        const body = { email, password };
+        if(isRegister) body.name = document.getElementById('auth-input-name').value;
 
+        const res = await fetch(url, { 
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json' }, 
+            body: JSON.stringify(body)
+        });
         const data = await res.json();
 
         if (data.success) {
             loginSuccess(data.user);
-        } else {
-            alert(data.message || "Erro ao logar");
+        } else { 
+            alert(data.message || "Erro ao logar"); 
         }
-    } catch (err) {
-        alert("Erro de conexão com o servidor.");
-    } finally {
-        btn.innerText = originalText;
-    }
+    } catch (err) { alert("Erro de conexão."); } 
+    finally { btn.innerText = isRegister ? "Criar Conta" : "Entrar"; }
 }
 
 function loginSuccess(user) {
     state.user = user;
     localStorage.setItem('user', JSON.stringify(state.user));
-    navigateTo(state.user.role === 'admin' ? 'admin-dashboard' : 'home');
+    fetchUserEnrollments().then(() => {
+        const isStaff = state.user.role === 'admin' || state.user.role === 'servidor';
+        navigateTo(isStaff ? 'admin-dashboard' : 'home');
+    });
 }
 
 function logout() {
@@ -95,68 +81,6 @@ function logout() {
     state.user = null;
     state.enrollments = [];
     navigateTo('home');
-}
-
-function navigateTo(pageId) {
-    if ((['dashboard', 'profile', 'user-scanner'].includes(pageId)) && !state.user) return navigateTo('login');
-    if (pageId.startsWith('admin') && state.user?.role !== 'admin') return navigateTo('home');
-
-    stopScanner();
-
-    document.querySelectorAll('.page-section').forEach(el => {
-        el.classList.remove('active');
-        el.style.display = 'none';
-    });
-
-    const target = document.getElementById(`page-${pageId}`);
-    if (target) {
-        target.style.display = 'block';
-        setTimeout(() => target.classList.add('active'), 10);
-        window.scrollTo(0, 0);
-    }
-
-    updateNavbar(pageId);
-
-    if (pageId === 'home') renderCards(state.events.slice(0, 3), 'home-events-grid');
-    if (pageId === 'public-events') renderCards(state.events, 'public-events-grid');
-    if (pageId === 'dashboard') loadMyEvents();
-    if (pageId === 'profile') renderProfile();
-    if (pageId === 'admin-dashboard') renderAdminStatsOverview();
-    if (pageId === 'admin-users') loadAdminUsers();
-    if (pageId === 'admin-qrcode') initAdminQR();
-    if (pageId === 'admin-stats') initStatsPage();
-
-    lucide.createIcons();
-}
-
-function updateNavbar(currPage) {
-    const nav = document.getElementById('nav-items-desktop');
-    const mob = document.getElementById('mobile-menu');
-    let items = [{ id: 'public-events', l: 'Eventos', a: "navigateTo('public-events')", i: 'globe' }];
-
-    if (state.user) {
-        if (state.user.role === 'admin') {
-            items.push({ id: 'admin-dashboard', l: 'Painel Admin', a: "navigateTo('admin-dashboard')", i: 'layout-dashboard' });
-        } else {
-            items.push({ id: 'dashboard', l: 'Meus Ingressos', a: "navigateTo('dashboard')", i: 'ticket' });
-            items.push({ id: 'user-scanner', l: 'Scanner', a: "navigateTo('user-scanner')", i: 'scan' });
-        }
-        items.push({ id: 'profile', l: 'Perfil', a: "navigateTo('profile')", i: 'user' });
-        items.push({ id: 'logout', l: 'Sair', a: "logout()", i: 'log-out', red: true });
-    } else {
-        items.push({ id: 'login', l: 'Entrar', a: "navigateTo('login')", i: 'log-in', pri: true });
-    }
-
-    const render = (i) => {
-        const active = currPage === i.id ? 'nav-btn-active' : '';
-        const style = i.pri ? 'bg-brand-600 text-white hover:bg-brand-700' : i.red ? 'text-red-600 hover:bg-red-50' : 'text-gray-600 hover:bg-gray-100';
-        return `<button onclick="${i.a}" class="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all ${style} ${active}">
-            <i data-lucide="${i.i}" class="w-4 h-4"></i> ${i.l}
-        </button>`;
-    };
-
-    if (nav) nav.innerHTML = items.map(i => render(i)).join('');
-    if (mob) mob.innerHTML = items.map(i => render(i)).join('');
 }
 
 function toggleAuth(isLogin) {
@@ -167,7 +91,93 @@ function toggleAuth(isLogin) {
     document.getElementById('tab-register').className = !isLogin ? "flex-1 py-2.5 rounded-lg bg-white shadow text-sm font-bold text-gray-900 transition-all" : "flex-1 py-2.5 rounded-lg text-gray-500 text-sm font-bold transition-all";
 }
 
-function toggleMobileMenu() { document.getElementById('mobile-menu').classList.toggle('hidden'); }
+function navigateTo(pageId) {
+    const role = state.user?.role;
+    const isStaff = role === 'admin' || role === 'servidor';
+
+    if ((['dashboard', 'profile', 'user-scanner'].includes(pageId)) && !state.user) return navigateTo('login');
+    
+    if (pageId.startsWith('admin') && !isStaff) return navigateTo('home');
+
+    if (role === 'servidor') {
+        if (pageId === 'admin-users') {
+            alert("Apenas Administradores podem gerenciar usuários.");
+            return;
+        }
+        if (pageId === 'admin-qrcode') {
+            alert("Apenas Administradores podem gerar QR Codes.");
+            return;
+        }
+    }
+
+    if(state.scanner) stopScanner();
+    if(state.paymentTimer) clearInterval(state.paymentTimer);
+    if(typeof qrInterval !== 'undefined' && qrInterval) clearInterval(qrInterval);
+    
+    document.querySelectorAll('.page-section').forEach(el => { 
+        el.classList.remove('active'); 
+        el.style.display = 'none'; 
+    });
+    
+    const target = document.getElementById(`page-${pageId}`);
+    if (target) { 
+        target.style.display = 'block'; 
+        setTimeout(() => target.classList.add('active'), 10); 
+        window.scrollTo(0, 0); 
+    }
+    
+    updateNavbar(pageId);
+
+    if(pageId === 'home') renderCards(state.events.slice(0,3), 'home-events-grid');
+    if(pageId === 'public-events') renderCards(state.events, 'public-events-grid');
+    if(pageId === 'dashboard') loadMyEvents();
+    if(pageId === 'profile') renderProfile();
+    
+    if(pageId === 'admin-dashboard') {
+        renderAdminStatsOverview();
+        const title = document.getElementById('dashboard-title');
+        if(title) title.innerText = role === 'servidor' ? 'Painel Servidor' : 'Painel Admin';
+    }
+    
+    if(pageId === 'admin-users') loadAdminUsers();
+    if(pageId === 'admin-qrcode') initAdminQR();
+    if(pageId === 'admin-stats') initStatsPage();
+
+    lucide.createIcons();
+}
+
+function updateNavbar(currPage) {
+    const nav = document.getElementById('nav-items-desktop');
+    const mob = document.getElementById('mobile-menu');
+    
+    let items = [{id:'public-events', l:'Eventos', a:"navigateTo('public-events')", i:'globe'}];
+    
+    if (state.user) {
+        if(state.user.role === 'admin' || state.user.role === 'servidor') {
+            const label = state.user.role === 'servidor' ? 'Painel Servidor' : 'Painel Admin';
+            items.push({id:'admin-dashboard', l: label, a:"navigateTo('admin-dashboard')", i:'layout-dashboard'});
+        } else {
+            items.push({id:'dashboard', l:'Meus Ingressos', a:"navigateTo('dashboard')", i:'ticket'});
+            items.push({id:'user-scanner', l:'Scanner', a:"navigateTo('user-scanner')", i:'scan'});
+        }
+        items.push({id:'profile', l:'Perfil', a:"navigateTo('profile')", i:'user'});
+        items.push({id:'logout', l:'Sair', a:"logout()", i:'log-out', red:true});
+    } else { 
+        items.push({id:'login', l:'Entrar', a:"navigateTo('login')", i:'log-in', pri:true}); 
+    }
+    
+    const render = (i) => `<button onclick="${i.a}" class="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all ${currPage === i.id ? 'bg-brand-50 text-brand-600 font-bold' : (i.pri ? 'bg-brand-600 text-white hover:bg-brand-700' : (i.red ? 'text-red-600 hover:bg-red-50' : 'text-gray-600 hover:bg-gray-100'))}"><i data-lucide="${i.i}" class="w-4 h-4"></i> ${i.l}</button>`;
+    
+    if(nav) nav.innerHTML = items.map(i => render(i)).join('');
+    if(mob) mob.innerHTML = items.map(i => render(i)).join('');
+    
+    lucide.createIcons();
+}
+
+function toggleMobileMenu() { 
+    const menu = document.getElementById('mobile-menu');
+    menu.classList.toggle('hidden'); 
+}
 
 function renderProfile() {
     if (state.user) {
@@ -175,62 +185,73 @@ function renderProfile() {
         document.getElementById('profile-email-input').value = state.user.email;
         document.getElementById('profile-display-name').innerText = state.user.name;
         document.getElementById('profile-display-email').innerText = state.user.email;
-
-        const initials = state.user.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+        
+        const initials = state.user.name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase();
         document.getElementById('profile-avatar').innerText = initials;
-
-        const badge = document.getElementById('profile-role-badge');
-        badge.innerText = state.user.role === 'admin' ? 'ADMINISTRADOR' : 'MEMBRO';
-
-        document.getElementById('profile-stats-events').innerText = state.enrollments.length || '0';
+        document.getElementById('profile-role-badge').innerText = state.user.role.toUpperCase();
+        document.getElementById('profile-stats-events').innerText = state.enrollments.length || '0'; 
     }
 }
 
-
+async function updateProfile(e) {
+    e.preventDefault();
+    alert('Funcionalidade de atualizar perfil ainda não conectada ao banco.');
+}
 async function renderAdminStatsOverview() {
-    await fetchEvents(); 
+    // 1. Atualiza a lista de eventos na memória
+    await fetchEvents();
 
+    // 2. Busca os números dos cards (Eventos, Check-ins, Usuários)
     try {
         const res = await fetch('api_dashboard_stats.php');
         const data = await res.json();
+        
         if (data.success) {
-            document.getElementById('adm-stat-ev').innerText = data.events;
-            document.getElementById('adm-stat-ck').innerText = data.checkins;
-            document.getElementById('adm-stat-us').innerText = data.users;
+            // Verifica se os elementos existem antes de preencher
+            const elEv = document.getElementById('adm-stat-ev');
+            const elCk = document.getElementById('adm-stat-ck');
+            const elUs = document.getElementById('adm-stat-us');
+            
+            if(elEv) elEv.innerText = data.events;
+            if(elCk) elCk.innerText = data.checkins;
+            if(elUs) elUs.innerText = data.users;
         }
-    } catch (err) { console.error(err); }
+    } catch (err) {
+        console.warn("Não foi possível carregar as estatísticas do painel.");
+    }
 
+    // 3. Desenha a lista de eventos recentes
     const list = document.getElementById('admin-events-list');
+    if (!list) return; // Proteção se o HTML não existir
 
-    if (state.events.length === 0) {
-        list.innerHTML = '<p class="text-gray-400 text-center py-6">Nenhum evento criado.</p>';
+    if (!state.events || state.events.length === 0) {
+        list.innerHTML = '<div class="text-center py-8 text-gray-400">Nenhum evento encontrado.</div>';
         return;
     }
 
     list.innerHTML = state.events.slice(0, 10).map(e => `
         <div class="flex justify-between items-center p-4 bg-white border border-gray-100 rounded-xl shadow-sm hover:shadow-md transition-all">
             <div class="flex items-center gap-4">
-                <div class="w-12 h-12 rounded-lg bg-gray-100 overflow-hidden hidden sm:block">
-                    <img src="${e.image_url || ''}" onerror="this.style.display='none'" class="w-full h-full object-cover">
+                <div class="w-12 h-12 rounded-lg bg-gray-100 overflow-hidden hidden sm:block flex-shrink-0">
+                    <img src="${e.image_url || 'https://via.placeholder.com/150'}" 
+                         onerror="this.style.display='none'" 
+                         class="w-full h-full object-cover">
                 </div>
-                <div>
-                    <h4 class="font-bold text-gray-800">${e.name}</h4>
-                    <p class="text-xs text-gray-500">
+                
+                <div class="min-w-0">
+                    <h4 class="font-bold text-gray-800 truncate">${e.name}</h4>
+                    <p class="text-xs text-gray-500 flex items-center gap-1">
                         ${new Date(e.date).toLocaleDateString()} • 
                         <span class="font-bold text-brand-600">${e.enrolled_count || 0} inscritos</span>
                     </p>
                 </div>
             </div>
 
-            <div class="flex items-center gap-2">
-                <button onclick="viewEventAttendees(${e.id}, '${e.name}')" title="Ver Inscritos" class="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors">
-                    <i data-lucide="users" class="w-4 h-4"></i>
+            <div class="flex items-center gap-2 flex-shrink-0">
+                <button onclick="viewEventAttendees(${e.id}, '${e.name}')" title="Ver Inscritos" class="flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-600 text-xs font-bold rounded-lg hover:bg-blue-100 transition-colors">
+                    <i data-lucide="users" class="w-4 h-4"></i> Ver Lista
                 </button>
                 
-                <button onclick="navigateTo('admin-qrcode'); setTimeout(()=>{document.getElementById('qr-sel').value='${e.id}'}, 100)" title="Gerar QR" class="p-2 bg-purple-50 text-purple-600 rounded-lg hover:bg-purple-100 transition-colors">
-                    <i data-lucide="qr-code" class="w-4 h-4"></i>
-                </button>
-
                 <button onclick="editEvent(${e.id})" title="Editar" class="p-2 bg-yellow-50 text-yellow-600 rounded-lg hover:bg-yellow-100 transition-colors">
                     <i data-lucide="pencil" class="w-4 h-4"></i>
                 </button>
@@ -241,61 +262,76 @@ async function renderAdminStatsOverview() {
             </div>
         </div>
     `).join('');
-
+    
+    // Recarrega os ícones do Lucide
     lucide.createIcons();
 }
 
-function editEvent(eventId) { 
+function previewImage(input) {
+    const ui = document.getElementById('upload-ui');
+    const img = document.getElementById('image-preview');
+    const nameDisplay = document.getElementById('file-name-display');
+
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            img.src = e.target.result; img.classList.remove('hidden'); ui.classList.add('opacity-0');
+        }
+        reader.readAsDataURL(input.files[0]);
+        if(nameDisplay) { nameDisplay.innerText = "Arquivo: " + input.files[0].name; nameDisplay.classList.remove('hidden'); }
+    } else {
+        img.src = ""; img.classList.add('hidden'); ui.classList.remove('opacity-0');
+        if(nameDisplay) nameDisplay.classList.add('hidden');
+    }
+}
+
+function editEvent(eventId) {
     const event = state.events.find(e => e.id == eventId);
-    if (!event) return;
-
+    if(!event) return;
     navigateTo('admin-event-form');
-
+    
     document.getElementById('evt-name').value = event.name;
     document.getElementById('evt-desc').value = event.description;
-
-    const dataHora = new Date(event.date);
-    document.getElementById('evt-date').value = dataHora.toISOString().split('T')[0];
-    document.getElementById('evt-time').value = dataHora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-
+    const d = new Date(event.date);
+    document.getElementById('evt-date').value = d.toISOString().split('T')[0];
+    document.getElementById('evt-time').value = d.toTimeString().substring(0,5);
     document.getElementById('evt-loc').value = event.location;
     document.getElementById('evt-price').value = event.price;
+    document.getElementById('evt-cap').value = event.capacity || '';
+    if(document.getElementById('evt-days')) document.getElementById('evt-days').value = event.required_checkins || 1;
 
-    if (document.getElementById('evt-days')) {
-        document.getElementById('evt-days').value = event.required_checkins || 1;
+    const ui = document.getElementById('upload-ui');
+    const img = document.getElementById('image-preview');
+    if (event.image_url && event.image_url.trim() !== "") {
+        img.src = event.image_url; img.classList.remove('hidden'); ui.classList.add('opacity-0');
+    } else {
+        img.src = ""; img.classList.add('hidden'); ui.classList.remove('opacity-0');
     }
 
     currentEditId = eventId;
-
     const btn = document.querySelector('#page-admin-event-form form button');
-    if (btn) {
-        btn.innerText = "Salvar Alterações";
-        btn.className = "w-full bg-yellow-600 text-white py-4 rounded-xl font-bold text-lg shadow-lg hover:bg-yellow-700 transition-all";
-    }
+    if(btn) { btn.innerText = "Salvar Alterações"; btn.className = "w-full bg-yellow-600 text-white py-4 rounded-xl font-bold text-lg shadow-lg hover:bg-yellow-700 transition-all"; }
 }
 
 function cancelEventForm() {
     currentEditId = null;
     const form = document.querySelector('#page-admin-event-form form');
-    if (form) form.reset();
+    if(form) form.reset();
+
+    const ui = document.getElementById('upload-ui');
+    const img = document.getElementById('image-preview');
+    img.src = ""; img.classList.add('hidden'); ui.classList.remove('opacity-0');
 
     const btn = document.querySelector('#page-admin-event-form form button');
-    if (btn) {
-        btn.innerText = "Publicar Evento";
-        btn.className = "w-full bg-brand-600 text-white py-4 rounded-xl font-bold text-lg shadow-lg hover:bg-brand-700 transition-all";
-        btn.disabled = false;
-    }
-
+    if(btn) { btn.innerText = "Publicar Evento"; btn.className = "w-full bg-brand-600 text-white py-4 rounded-xl font-bold text-lg shadow-lg hover:bg-brand-700 transition-all"; btn.disabled = false; }
     navigateTo('admin-dashboard');
 }
 
-
 async function handleEventSubmit(e) {
     e.preventDefault();
-
     const btn = e.target.querySelector('button');
     const originalText = btn.innerText;
-    btn.innerText = "Processando...";
+    btn.innerText = "Enviando...";
     btn.disabled = true;
 
     const formData = new FormData();
@@ -305,14 +341,11 @@ async function handleEventSubmit(e) {
     formData.append('time', document.getElementById('evt-time').value);
     formData.append('location', document.getElementById('evt-loc').value);
     formData.append('price', document.getElementById('evt-price').value);
-
-    const daysInput = document.getElementById('evt-days');
-    formData.append('required_checkins', daysInput ? daysInput.value : 1);
+    formData.append('capacity', document.getElementById('evt-cap').value);
+    formData.append('required_checkins', document.getElementById('evt-days') ? document.getElementById('evt-days').value : 1);
 
     const fileInput = document.getElementById('evt-img-file');
-    if (fileInput && fileInput.files[0]) {
-        formData.append('image', fileInput.files[0]);
-    }
+    if (fileInput && fileInput.files[0]) formData.append('image', fileInput.files[0]);
 
     try {
         let url = 'api_create_event.php';
@@ -325,55 +358,36 @@ async function handleEventSubmit(e) {
         const data = await res.json();
 
         if (data.success) {
-            alert(currentEditId ? "✅ Evento atualizado!" : "✅ Evento criado!");
+            alert(currentEditId ? "✅ Atualizado!" : "✅ Criado!");
             e.target.reset();
             cancelEventForm(); 
             await fetchEvents();
         } else {
             alert("Erro: " + data.message);
         }
-
     } catch (err) {
-        console.error(err);
         alert("Erro de conexão.");
     } finally {
-        if (!currentEditId) {
-            btn.innerText = originalText;
-            btn.disabled = false;
-        }
+        if (!currentEditId) { btn.innerText = originalText; btn.disabled = false; }
     }
 }
 
 async function deleteEvent(eventId) {
-    if (!confirm("⚠️ Tem certeza que deseja EXCLUIR este evento?\n\nEssa ação é irreversível.")) return;
-
+    if (!confirm("⚠️ Excluir evento?")) return;
     try {
         const res = await fetch('api_delete_event.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: eventId })
+            method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ id: eventId })
         });
-
         const data = await res.json();
-
-        if (data.success) {
-            alert("🗑️ Evento excluído!");
-            await fetchEvents();
-            renderAdminStatsOverview();
-        } else {
-            alert("Erro: " + data.message);
-        }
-
-    } catch (err) {
-        console.error(err);
-        alert("Erro de conexão.");
-    }
+        if(data.success) { alert("Excluído!"); await fetchEvents(); renderAdminStatsOverview(); }
+    } catch(e) { alert("Erro ao excluir."); }
 }
+
 async function viewEventAttendees(eventId, eventName) {
     navigateTo('admin-attendees');
     document.getElementById('attendees-event-title').innerText = eventName;
     const tbody = document.getElementById('attendees-list-body');
-    tbody.innerHTML = '<tr><td colspan="4" class="p-8 text-center"><i data-lucide="loader-2" class="animate-spin mx-auto"></i></td></tr>';
+    tbody.innerHTML = '<tr><td colspan="4" class="p-12 text-center"><div class="flex justify-center"><i data-lucide="loader-2" class="animate-spin text-brand-600 w-8 h-8"></i></div></td></tr>';
     lucide.createIcons();
 
     try {
@@ -382,7 +396,7 @@ async function viewEventAttendees(eventId, eventName) {
         document.getElementById('attendees-count').innerText = attendees.length;
 
         if(attendees.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4" class="p-8 text-center text-gray-400">Nenhum inscrito.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="4" class="p-12 text-center text-gray-400 italic bg-gray-50 rounded-lg">Nenhum inscrito neste evento ainda.</td></tr>';
             return;
         }
 
@@ -392,59 +406,52 @@ async function viewEventAttendees(eventId, eventName) {
             const pct = Math.min(100, Math.floor((checkins/required)*100));
             
             const isPending = u.payment_status === 'pending';
-            
             const statusBadge = isPending 
                 ? '<span class="ml-2 px-2 py-0.5 bg-yellow-100 text-yellow-700 text-[10px] font-bold uppercase rounded border border-yellow-200">Pendente</span>' 
                 : '<span class="ml-2 px-2 py-0.5 bg-green-100 text-green-700 text-[10px] font-bold uppercase rounded border border-green-200">Pago</span>';
 
-            let barColor = 'bg-gray-300';
-            let textColor = 'text-gray-500';
-            if(pct >= 75) { barColor = 'bg-green-500'; textColor = 'text-green-600'; }
-            else if(pct > 0) { barColor = 'bg-yellow-400'; textColor = 'text-yellow-600'; }
-
+            let barColor = pct >= 75 ? 'bg-green-500' : 'bg-yellow-400';
+            let textColor = pct >= 75 ? 'text-green-600' : 'text-gray-500';
             const certButton = isPending 
-                ? `<span class="text-xs text-gray-400 italic mr-2">Aguardando Pagamento</span>`
-                : `<button onclick="adminOpenCert(${u.user_id}, ${eventId}, '${u.name}')" class="px-3 py-1 border rounded text-xs font-bold hover:bg-gray-50 flex items-center gap-1 ml-auto">
-                     <i data-lucide="award" class="w-3 h-3"></i> Certificado
-                   </button>`;
+                ? `<span class="text-xs text-gray-400 italic">Aguardando Pgto</span>`
+                : `<button onclick="adminOpenCert(${u.user_id}, ${eventId}, '${u.name}')" class="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 hover:border-brand-300 hover:bg-white hover:shadow-sm transition-all bg-gray-50 group"><i data-lucide="award" class="w-4 h-4 text-gray-400 group-hover:text-brand-600"></i><span class="text-xs font-bold text-gray-500 group-hover:text-brand-700">Certificado</span></button>`;
 
             return `
             <tr class="hover:bg-gray-50 border-b border-gray-100 ${isPending ? 'bg-yellow-50/30' : ''}">
                 <td class="p-4 align-middle">
-                    <span class="font-bold text-sm text-gray-900">${u.name}</span>
-                    ${statusBadge}
-                    <br><span class="text-xs text-gray-500">${u.email}</span>
-                </td>
-                <td class="p-4 align-middle">
-                    <div class="w-full max-w-[140px]">
-                        <div class="text-xs flex justify-between mb-1"><span class="${textColor}">${pct}%</span><span>${checkins}/${required}</span></div>
-                        <div class="w-full bg-gray-100 h-2 rounded-full"><div class="${barColor} h-2 rounded-full" style="width:${pct}%"></div></div>
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center text-sm font-bold border border-brand-200 uppercase">${u.name.charAt(0)}</div>
+                        <div class="flex flex-col"><span class="font-bold text-gray-900 text-sm flex items-center gap-2">${u.name} ${statusBadge}</span><span class="text-xs text-gray-500">${u.email}</span></div>
                     </div>
                 </td>
-                <td class="p-4 align-middle text-sm text-gray-500">${new Date(u.enrolled_at).toLocaleDateString()}</td>
-                <td class="p-4 align-middle text-right">
-                    ${certButton}
+                <td class="p-4 align-middle">
+                    <div class="w-full max-w-[160px]">
+                        <div class="flex justify-between text-xs mb-1 font-bold"><span class="${textColor}">${pct}%</span><span class="text-gray-400 font-normal">${checkins}/${required} aulas</span></div>
+                        <div class="w-full bg-gray-100 rounded-full h-2 overflow-hidden shadow-inner"><div class="${barColor} h-2 rounded-full transition-all duration-500" style="width: ${pct}%"></div></div>
+                    </div>
                 </td>
+                <td class="p-4 align-middle text-sm"><div class="text-gray-600 font-medium">${new Date(u.enrolled_at).toLocaleDateString()}</div><div class="text-xs text-gray-400">${new Date(u.enrolled_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</div></td>
+                <td class="p-4 align-middle text-right">${certButton}</td>
             </tr>`;
         }).join('');
-        
         lucide.createIcons();
-
-    } catch(e) { tbody.innerHTML = '<tr><td colspan="4" class="p-4 text-center text-red-500">Erro na lista.</td></tr>'; }
-}async function loadAdminUsers() {
+    } catch(e) { tbody.innerHTML = '<tr><td colspan="4" class="p-8 text-center text-red-500">Erro ao carregar lista.</td></tr>'; }
+}
+async function loadAdminUsers() {
     const list = document.getElementById('admin-users-list');
     list.innerHTML = '<tr><td colspan="4" class="p-6 text-center"><i data-lucide="loader-2" class="animate-spin mx-auto text-brand-600"></i></td></tr>';
     lucide.createIcons();
 
     try {
         const res = await fetch('api_users.php');
-        if (res.ok) {
+        if(res.ok) {
             state.usersList = await res.json();
+            
             renderUsersTable(state.usersList);
         } else {
             throw new Error("Falha na API Users");
         }
-    } catch (e) {
+    } catch(e) {
         list.innerHTML = '<tr><td colspan="4" class="p-6 text-center text-red-500">Erro ao carregar usuários.</td></tr>';
     }
 }
@@ -452,153 +459,81 @@ async function viewEventAttendees(eventId, eventName) {
 function renderUsersTable(users) {
     const list = document.getElementById('admin-users-list');
     list.innerHTML = users.map(u => `
-        <tr class="hover:bg-gray-50 border-b border-gray-100 transition-colors">
-            <td class="p-4">
-                <div class="flex items-center gap-3">
-                    <div class="w-9 h-9 rounded-full bg-gray-200 flex items-center justify-center font-bold text-sm text-gray-600 border border-gray-300">
-                        ${u.name.charAt(0).toUpperCase()}
-                    </div>
-                    <div class="font-bold text-gray-900">${u.name}</div>
-                </div>
-            </td>
+        <tr class="hover:bg-gray-50 border-b border-gray-100">
+            <td class="p-4"><div class="flex items-center gap-3"><div class="w-9 h-9 rounded-full bg-gray-200 flex items-center justify-center font-bold text-sm uppercase">${u.name.charAt(0)}</div><div class="font-bold text-gray-900">${u.name}</div></div></td>
             <td class="p-4 text-gray-600">${u.email}</td>
-            <td class="p-4">
-                <span class="px-3 py-1 text-xs font-bold rounded-full ${u.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-blue-50 text-blue-700'}">
-                    ${u.role.toUpperCase()}
-                </span>
-            </td>
-            <td class="p-4 text-right">
-                ${state.user.email === u.email ?
-            '<span class="text-xs text-gray-400 italic px-2">Você</span>' :
-            `<select onchange="changeUserRole(${u.id}, this.value)" class="bg-white border border-gray-300 text-gray-700 text-xs rounded-lg p-2 shadow-sm cursor-pointer outline-none">
-                        <option value="user" ${u.role === 'user' ? 'selected' : ''}>Usuário</option>
-                        <option value="admin" ${u.role === 'admin' ? 'selected' : ''}>Admin</option>
-                    </select>`
-        }
+            <td class="p-4"><span class="px-2 py-1 rounded text-xs font-bold ${u.role==='admin'?'bg-purple-100 text-purple-700':(u.role==='servidor'?'bg-blue-100 text-blue-700':'bg-gray-100 text-gray-700')}">${u.role.toUpperCase()}</span></td>
+            <td class="p-4 text-right flex items-center justify-end gap-2">
+                ${state.user.email === u.email ? '<span class="text-xs text-gray-400 italic">Você</span>' : 
+                `<select onchange="changeUserRole(${u.id}, this.value)" class="border rounded text-xs p-1 outline-none">
+                    <option value="user" ${u.role==='user'?'selected':''}>Usuário</option>
+                    <option value="servidor" ${u.role==='servidor'?'selected':''}>Servidor</option>
+                    <option value="admin" ${u.role==='admin'?'selected':''}>Admin</option>
+                 </select>
+                 <button onclick="deleteUser(${u.id})" title="Excluir Usuário" class="p-1.5 bg-red-50 text-red-600 rounded hover:bg-red-100"><i data-lucide="trash-2" class="w-4 h-4"></i></button>`}
             </td>
         </tr>`).join('');
     lucide.createIcons();
 }
 
 async function changeUserRole(userId, newRole) {
-    if (!confirm(`Alterar permissão para ${newRole.toUpperCase()}?`)) {
-        loadAdminUsers(); return;
-    }
+    if(!confirm(`Mudar para ${newRole.toUpperCase()}?`)) { loadAdminUsers(); return; }
     try {
-        const res = await fetch('api_user_role.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id: userId, new_role: newRole })
-        });
+        const res = await fetch('api_user_role.php', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({user_id: userId, new_role: newRole})});
+        if((await res.json()).success) { alert("Alterado!"); loadAdminUsers(); }
+    } catch(e) { alert("Erro."); }
+}
+
+async function deleteUser(userId) {
+    if(!confirm("⚠️ Tem certeza que deseja excluir este usuário?\nIsso apagará todas as inscrições dele.")) return;
+    try {
+        const res = await fetch('api_delete_user.php', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({id: userId})});
         const data = await res.json();
-        if (data.success) {
-            alert("Permissão alterada!");
-            loadAdminUsers();
-        } else {
-            alert("Erro: " + data.message);
-        }
-    } catch (err) {
-        alert("Erro de conexão.");
-    }
+        if(data.success) { alert("Usuário excluído!"); loadAdminUsers(); } else { alert(data.message); }
+    } catch(e) { alert("Erro ao excluir."); }
 }
 
-
-async function adminOpenCert(userId, eventId, userName) {
-    if (!confirm(`Gerar certificado de ${userName}?`)) return;
-
-    try {
-        const res = await fetch(`api_certificate.php?user_id=${userId}&event_id=${eventId}`);
-        const result = await res.json();
-
-        if (result.success) {
-            openCertModalData(result.data, userName);
-        } else {
-            alert(`⚠️ Certificado Indisponível.\n\nMotivo: ${result.message}\nPresença: ${result.percentage}%`);
-        }
-    } catch (err) {
-        console.error(err);
-        alert("Erro ao buscar certificado.");
-    }
+function filterUsersTable(text) {
+    const filtered = state.usersList.filter(u => u.name.toLowerCase().includes(text.toLowerCase()) || u.email.toLowerCase().includes(text.toLowerCase()));
+    renderUsersTable(filtered);
 }
 
-async function openCert(eventName, eventDate, eventId) {
-    const btn = event.currentTarget;
-    const originalContent = btn.innerHTML;
-    btn.innerHTML = '<i data-lucide="loader-2" class="animate-spin w-4 h-4"></i> ...';
-
-    try {
-        const res = await fetch(`api_certificate.php?user_id=${state.user.id}&event_id=${eventId}`);
-        const result = await res.json();
-
-        if (result.success) {
-            openCertModalData(result.data, state.user.name);
-        } else {
-            alert(`🚫 CERTIFICADO BLOQUEADO\n\nSua presença: ${result.percentage}%\nMínimo exigido: 75%\n\n${result.debug_info || 'Faça check-in no evento.'}`);
-        }
-    } catch (err) {
-        alert("Erro de conexão.");
-    } finally {
-        btn.innerHTML = originalContent;
-        lucide.createIcons();
-    }
+function filterEvents(val, gridId) {
+    const filtered = state.events.filter(e => e.name.toLowerCase().includes(val.toLowerCase()));
+    renderCards(filtered, gridId);
 }
-
-function openCertModalData(data, userName) {
-    document.getElementById('cert-name').innerText = userName;
-    document.getElementById('cert-event').innerText = data.event_name;
-    document.getElementById('cert-date').innerText = data.event_date;
-    document.getElementById('cert-loc').innerText = data.event_loc || "Online";
-    document.getElementById('cert-hash').innerText = data.code;
-
-    const qrBox = document.getElementById('cert-qr-code');
-    qrBox.innerHTML = "";
-    new QRCode(qrBox, {
-        text: "VALIDADO:" + data.code,
-        width: 80, height: 80,
-        colorDark: "#854d0e", colorLight: "#ffffff",
-        correctLevel: QRCode.CorrectLevel.H
-    });
-
-    const modal = document.getElementById('cert-modal');
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
-}
-
-function closeCert() {
-    document.getElementById('cert-modal').classList.add('hidden');
-    document.getElementById('cert-modal').classList.remove('flex');
-}
-
-
 function renderCards(evs, id) {
     const c = document.getElementById(id);
-    if (!c) return;
+    if(!c) return;
+    const fallback = 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=800';
 
-    const fallbackImage = 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=800';
+    c.innerHTML = evs.length ? evs.map(e => {
+        // Lógica das Estrelas
+        const rating = parseFloat(e.avg_rating || 0);
+        const starIcon = rating > 0 ? '⭐ ' + rating.toFixed(1) : 'Novo';
+        const starClass = rating > 0 ? 'text-yellow-500 bg-yellow-50' : 'text-blue-500 bg-blue-50';
 
-    c.innerHTML = evs.length ? evs.map(e => `
-        <div class="bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden flex flex-col border border-gray-100 group h-full">
-            <div class="h-48 overflow-hidden relative bg-gray-200">
-                <img src="${e.image_url || fallbackImage}" 
-                     alt="${e.name}"
-                     onerror="this.onerror=null;this.src='${fallbackImage}';" 
-                     class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500">
-                <div class="absolute top-3 right-3 bg-white/90 backdrop-blur px-3 py-1 rounded-full text-xs font-bold shadow">
-                    ${new Date(e.date).toLocaleDateString()}
+        return `
+        <div class="bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all border border-gray-100 overflow-hidden flex flex-col h-full relative">
+            <div class="h-48 bg-gray-200 relative overflow-hidden">
+                <img src="${e.image_url || fallback}" onerror="this.src='${fallback}'" class="w-full h-full object-cover group-hover:scale-110 transition-transform">
+                <div class="absolute top-3 right-3 bg-white/90 px-2 py-1 rounded text-xs font-bold">${new Date(e.date).toLocaleDateString()}</div>
+                
+                <div class="absolute bottom-3 left-3 px-2 py-1 rounded-lg text-xs font-bold ${starClass} shadow-sm border border-white/50">
+                    ${starIcon}
                 </div>
             </div>
             <div class="p-6 flex flex-col flex-1">
-                <h3 class="font-bold text-xl mb-2 text-gray-900 line-clamp-1">${e.name}</h3>
+                <h3 class="font-bold text-lg mb-2">${e.name}</h3>
                 <p class="text-sm text-gray-500 mb-4 line-clamp-2">${e.description}</p>
-                <div class="mt-auto flex justify-between items-center pt-4 border-t border-gray-50">
-                    <span class="text-lg font-bold text-brand-600">${parseFloat(e.price) > 0 ? 'R$ ' + e.price : 'Grátis'}</span>
-                    <button onclick="openEventModal(${e.id})" class="bg-gray-900 text-white px-5 py-2 rounded-lg font-bold text-sm hover:bg-brand-600 transition-colors">
-                        Ver Detalhes
-                    </button>
+                <div class="mt-auto flex justify-between items-center pt-4 border-t">
+                    <span class="font-bold text-brand-600">${parseFloat(e.price)>0 ? 'R$ '+e.price : 'Grátis'}</span>
+                    <button onclick="openEventModal(${e.id})" class="bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-bold">Ver Detalhes</button>
                 </div>
             </div>
-        </div>`).join('') : `<p class="col-span-full text-center text-gray-400 py-10">Nenhum evento disponível.</p>`;
-    }
+        </div>
+    `;}).join('') : '<p class="col-span-full text-center text-gray-400 py-10">Sem eventos.</p>';
+}
 async function loadMyEvents() {
     const grid = document.getElementById('dashboard-grid');
     
@@ -614,50 +549,81 @@ async function loadMyEvents() {
         return; 
     }
 
-    const fallback = 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800';
+    const fallbackImage = 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800';
 
     grid.innerHTML = state.enrollments.map(e => {
+        const dateObj = new Date(e.date);
+        const day = dateObj.getDate();
+        const month = dateObj.toLocaleDateString('pt-BR', { month: 'short' }).toUpperCase().replace('.', '');
+        
+        // 1. Verifica Status
         const isPending = e.payment_status === 'pending';
+        // 2. Verifica se o evento JÁ PASSOU (Data atual > Data do evento)
+        const isPast = new Date() > new Date(e.date);
+
+        // Badge Visual
         const statusHtml = isPending 
-            ? '<span class="text-yellow-600 bg-yellow-100 px-2 py-1 rounded text-xs font-bold">Pendente</span>' 
-            : '<span class="text-green-600 bg-green-100 px-2 py-1 rounded text-xs font-bold">Confirmado</span>';
-            
-        const buttonsHtml = isPending 
-            ? `<button onclick="initPixPayment(${e.id})" class="flex-1 py-2 bg-yellow-500 text-white rounded font-bold hover:bg-yellow-600">Pagar</button>
-               <button onclick="cancelEnrollment(${e.id})" class="px-3 py-2 bg-red-100 text-red-600 rounded hover:bg-red-200"><i data-lucide="trash-2" class="w-4 h-4"></i></button>`
-            : `<button onclick="openCert('${e.name}', '${e.date}', ${e.id})" class="flex-1 py-2 bg-amber-100 text-amber-800 rounded font-bold hover:bg-amber-200">Certificado</button>
-               <button onclick="cancelEnrollment(${e.id})" class="px-3 py-2 bg-red-100 text-red-600 rounded hover:bg-red-200"><i data-lucide="trash-2" class="w-4 h-4"></i></button>`;
+            ? '<span class="text-yellow-700 bg-yellow-100 px-2 py-1 rounded-lg text-xs font-bold border border-yellow-200 flex items-center gap-1"><i data-lucide="clock" class="w-3 h-3"></i> Pendente</span>' 
+            : (isPast 
+                ? '<span class="text-gray-700 bg-gray-100 px-2 py-1 rounded-lg text-xs font-bold border border-gray-200 flex items-center gap-1"><i data-lucide="check-circle-2" class="w-3 h-3"></i> Concluído</span>'
+                : '<span class="text-green-700 bg-green-100 px-2 py-1 rounded-lg text-xs font-bold border border-green-200 flex items-center gap-1"><i data-lucide="calendar-check" class="w-3 h-3"></i> Confirmado</span>');
+
+        // Lógica dos Botões
+        let buttonsHtml = '';
+
+        if (isPending) {
+            // CENÁRIO 1: Falta Pagar
+            buttonsHtml = `
+                <button onclick="initPixPayment(${e.id})" class="flex-1 py-2.5 bg-yellow-500 text-white rounded-xl font-bold shadow-lg shadow-yellow-200 hover:bg-yellow-600 transition-all flex items-center justify-center gap-2"><i data-lucide="qr-code" class="w-4 h-4"></i> Pagar</button>
+                <button onclick="cancelEnrollment(${e.id})" class="px-3 py-2 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 border border-red-100"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
+            `;
+        } else if (isPast) {
+            // CENÁRIO 2: Evento já passou (Avaliar + Certificado)
+            buttonsHtml = `
+                <button onclick="openReviewModal(${e.id})" class="flex-1 py-2.5 bg-blue-50 text-blue-700 border border-blue-100 rounded-xl font-bold hover:bg-blue-100 flex items-center justify-center gap-2"><i data-lucide="star" class="w-4 h-4"></i> Avaliar</button>
+                <button onclick="openCert('${e.name}', '${e.date}', ${e.id})" class="px-3 py-2 bg-amber-50 text-amber-700 rounded-xl hover:bg-amber-100 border border-amber-200"><i data-lucide="award" class="w-5 h-5"></i></button>
+            `;
+        } else {
+            // CENÁRIO 3: Evento Futuro Confirmado (Apenas Cancelar ou Ver)
+            buttonsHtml = `
+                <button disabled class="flex-1 py-2.5 bg-gray-100 text-gray-400 border border-gray-200 rounded-xl font-bold cursor-not-allowed flex items-center justify-center gap-2"><i data-lucide="calendar-clock" class="w-4 h-4"></i> Em breve</button>
+                <button onclick="cancelEnrollment(${e.id})" class="px-3 py-2 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 border border-red-100"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
+            `;
+        }
 
         return `
-        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col h-full">
+        <div class="group bg-white rounded-3xl shadow-sm hover:shadow-xl transition-all duration-300 border ${isPending ? 'border-yellow-300 ring-2 ring-yellow-50' : 'border-gray-100'} overflow-hidden flex flex-col h-full relative">
             <div class="h-40 bg-gray-200 relative">
-                <img src="${e.image_url || fallback}" onerror="this.src='${fallback}'" class="w-full h-full object-cover ${isPending?'grayscale':''}">
+                <img src="${e.image_url || fallbackImage}" onerror="this.src='${fallbackImage}'" class="w-full h-full object-cover ${isPending || isPast ? 'grayscale opacity-80' : ''}">
+                <div class="absolute top-4 right-4 bg-white/95 backdrop-blur rounded-xl p-2 text-center shadow-lg min-w-[60px]">
+                    <span class="block text-sm font-bold text-gray-500 uppercase tracking-wider">${month}</span>
+                    <span class="block text-2xl font-extrabold text-gray-900 leading-none">${day}</span>
+                </div>
                 <div class="absolute bottom-3 left-3">${statusHtml}</div>
             </div>
             <div class="p-5 flex flex-col flex-1">
-                <h3 class="font-bold text-lg mb-2">${e.name}</h3>
-                <div class="mt-auto pt-4 border-t flex gap-2">${buttonsHtml}</div>
+                <h3 class="font-bold text-lg mb-1 text-gray-900 line-clamp-1">${e.name}</h3>
+                <div class="flex items-center gap-2 text-gray-500 text-sm mb-4">
+                    <i data-lucide="map-pin" class="w-4 h-4 text-brand-500"></i>
+                    <span class="truncate">${e.location || 'Online'}</span>
+                </div>
+                <div class="mt-auto pt-4 border-t border-gray-100 flex gap-2">${buttonsHtml}</div>
             </div>
-        </div>
-    `;
+        </div>`;
     }).join('');
     lucide.createIcons();
 }
 
 function openEventModal(eventId) {
     const event = state.events.find(e => e.id == eventId);
-    if (!event) return;
+    if(!event) return;
 
-    document.getElementById('modal-evt-img').src = event.image_url || 'https://via.placeholder.com/800x400';
     document.getElementById('modal-evt-title').innerText = event.name;
     document.getElementById('modal-evt-desc').innerText = event.description;
-    const price = parseFloat(event.price);
-    document.getElementById('modal-evt-price').innerText = price > 0 ? `R$ ${price.toFixed(2)}` : 'Grátis';
-
-    const dateObj = new Date(event.date);
-    document.getElementById('modal-evt-date').innerText = dateObj.toLocaleDateString('pt-BR') + ' às ' + dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    document.getElementById('modal-evt-loc').innerText = event.location || 'Online';
-
+    document.getElementById('modal-evt-date').innerText = new Date(event.date).toLocaleDateString();
+    document.getElementById('modal-evt-img').src = event.image_url || 'https://via.placeholder.com/800x400';
+    document.getElementById('modal-evt-price').innerText = parseFloat(event.price) > 0 ? `R$ ${event.price}` : "Grátis";
+    
     const enrolled = event.enrolled_count || 0;
     document.getElementById('modal-evt-capacity').innerText = `${enrolled} inscritos`;
     document.getElementById('modal-evt-count-badge').innerText = enrolled;
@@ -666,290 +632,70 @@ function openEventModal(eventId) {
     const newBtn = btn.cloneNode(true);
     btn.parentNode.replaceChild(newBtn, btn);
 
-    if (state.user && state.user.role === 'admin') {
-        newBtn.className = "w-full bg-gray-300 text-gray-500 font-bold py-4 rounded-lg cursor-not-allowed flex items-center justify-center gap-2 mb-6 text-lg border border-gray-200";
-        newBtn.innerHTML = '<i data-lucide="shield-alert"></i> Admin (Apenas Visualização)';
-        newBtn.onclick = () => alert("Administradores não podem se inscrever em eventos.");
-    } else if (state.enrollments.some(en => en.id == eventId)) {
-        newBtn.className = "w-full bg-green-100 text-green-700 font-bold py-4 rounded-lg cursor-default flex items-center justify-center gap-2 mb-6 text-lg";
-        newBtn.innerHTML = '<i data-lucide="check-circle"></i> Você já está inscrito';
-        newBtn.onclick = null;
+    const role = state.user ? state.user.role : null;
+    const isStaff = role === 'admin' || role === 'servidor';
+    const isEnrolled = state.enrollments.some(en => en.id == eventId);
+
+    if (isStaff) {
+        newBtn.className = "w-full bg-gray-300 text-gray-500 py-3 rounded font-bold cursor-not-allowed";
+        newBtn.innerHTML = 'Modo Visualização';
+        newBtn.onclick = () => alert("Admin/Servidor não podem se inscrever.");
+    } else if (isEnrolled) {
+        newBtn.className = "w-full bg-green-100 text-green-700 py-3 rounded font-bold";
+        newBtn.innerHTML = 'Já Inscrito';
     } else {
-        newBtn.className = "w-full bg-purple-700 hover:bg-purple-800 text-white font-bold py-4 rounded-lg transition-colors flex items-center justify-center gap-2 mb-6 text-lg shadow-lg hover:shadow-xl cursor-pointer";
-        newBtn.innerHTML = '<i data-lucide="ticket"></i> Inscrever-se Agora';
+        newBtn.className = "w-full bg-purple-700 text-white py-3 rounded font-bold hover:bg-purple-800";
+        newBtn.innerHTML = 'Inscrever-se';
         newBtn.onclick = () => { closeEventModal(); enroll(eventId); };
     }
 
-    const modal = document.getElementById('event-details-modal');
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
-    lucide.createIcons();
+    document.getElementById('event-details-modal').classList.remove('hidden');
+    document.getElementById('event-details-modal').classList.add('flex');
 }
 
 function closeEventModal() {
     document.getElementById('event-details-modal').classList.add('hidden');
     document.getElementById('event-details-modal').classList.remove('flex');
-    
-}async function enroll(eventId) {
-    // 1. Verifica se está logado
+}
+
+async function enroll(eventId) {
     if (!state.user) return navigateTo('login');
     
-    // 2. Busca os dados do evento
     const event = state.events.find(e => e.id == eventId);
-
-    if (event && event.price && parseFloat(event.price) > 0) {
-        console.log("Evento é PAGO. Iniciando fluxo Pix...");
+    if (event && parseFloat(event.price) > 0) {
         closeEventModal();
         initPixPayment(eventId);
         return;
     }
 
-    console.log("Evento é GRÁTIS. Inscrevendo direto...");
     const btn = document.getElementById('btn-register-action');
     if(btn) btn.innerText = "Processando...";
 
-
     try {
         const res = await fetch('api_enroll.php', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
+            method: 'POST', headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({ user_id: state.user.id, event_id: eventId })
         });
         const data = await res.json();
 
         if(data.success) {
-            alert('✅ Inscrição realizada com sucesso!');
+            alert('✅ Inscrição realizada!');
             state.enrollments.push(event);
             navigateTo('dashboard');
-        } else {
-            alert('Atenção: ' + data.message);
-        }
-    } catch(err) {
-        alert('Erro de conexão ao tentar se inscrever.');
-    }
+        } else { alert(data.message); }
+    } catch(err) { alert('Erro de conexão.'); }
 }
 
-
-async function onScan(decodedText) {
-    stopScanner();
-    const resDiv = document.getElementById('scan-result');
-    resDiv.classList.remove('hidden');
-    resDiv.innerHTML = '<div class="flex items-center justify-center gap-2"><i data-lucide="loader-2" class="animate-spin"></i> Validando...</div>';
-    lucide.createIcons();
-
+async function cancelEnrollment(eventId) {
+    if(!confirm("Cancelar inscrição?")) return;
     try {
-        const qrData = JSON.parse(decodedText);
-        if (!qrData.eid) throw new Error("QR Code inválido.");
-
-        const res = await fetch('api_checkin.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id: state.user.id, event_id: qrData.eid })
+        const res = await fetch('api_cancel_enrollment.php', {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ user_id: state.user.id, event_id: eventId })
         });
-        const data = await res.json();
-
-        if (data.success) {
-            resDiv.className = "mt-6 p-4 rounded-xl border border-green-600 bg-green-100 text-green-800 font-bold text-center shadow-inner";
-            resDiv.innerHTML = `<div class="flex flex-col items-center"><i data-lucide="check-circle" class="w-8 h-8 mb-2"></i>${data.message}</div>`;
-        } else {
-            throw new Error(data.message);
-        }
-    } catch (err) {
-        resDiv.className = "mt-6 p-4 rounded-xl border border-red-600 bg-red-100 text-red-800 font-bold text-center";
-        resDiv.innerHTML = `<div class="flex flex-col items-center"><i data-lucide="x-circle" class="w-8 h-8 mb-2"></i>${err.message || "Inválido"}</div>`;
-    }
-    lucide.createIcons();
+        if((await res.json()).success) { alert("Cancelado!"); await fetchUserEnrollments(); loadMyEvents(); }
+    } catch(e) { alert("Erro."); }
 }
-
-function startScanner() {
-    document.getElementById('scanner-camera-view').classList.remove('hidden');
-    document.getElementById('scanner-start-view').classList.add('hidden');
-    document.getElementById('scan-result').classList.add('hidden');
-    state.scanner = new Html5Qrcode("reader");
-    state.scanner.start({ facingMode: "environment" }, { fps: 10 }, onScan).catch(err => alert("Erro na câmera: " + err));
-}
-
-function stopScanner() {
-    if (state.scanner) {
-        state.scanner.stop().then(() => {
-            state.scanner.clear();
-            document.getElementById('scanner-camera-view').classList.add('hidden');
-            document.getElementById('scanner-start-view').classList.remove('hidden');
-            state.scanner = null;
-        });
-    }
-}
-
-
-function initAdminQR() {
-    const sel = document.getElementById('qr-sel');
-    sel.innerHTML = '<option>Selecione...</option>' + state.events.map(e => `<option value="${e.id}">${e.name}</option>`);
-}
-
-function startQR() {
-    const eid = document.getElementById('qr-sel').value;
-    if (eid === 'Selecione...') return alert("Escolha um evento");
-    const view = document.getElementById('qr-view');
-    view.innerHTML = '';
-    new QRCode(view, {
-        text: JSON.stringify({ eid: eid, t: Date.now() }),
-        width: 256, height: 256
-    });
-}
-
-function filterEvents(val, gridId) {
-    const filtered = state.events.filter(e => e.name.toLowerCase().includes(val.toLowerCase()));
-    renderCards(filtered, gridId);
-}
-
-function initStatsPage() {
-    const sel = document.getElementById('stats-event-select');
-    if (!sel) return;
-
-    sel.innerHTML = '<option value="">Selecione um Evento...</option>' +
-        state.events.map(e => `<option value="${e.id}">${e.name}</option>`).join('');
-
-    document.getElementById('stats-details-container').innerHTML =
-        '<div class="flex flex-col items-center justify-center h-64 text-gray-400"><i data-lucide="pie-chart" class="w-12 h-12 mb-2 opacity-20"></i><p>Selecione um evento.</p></div>';
-    document.getElementById('stats-total-count').innerText = "-";
-    lucide.createIcons();
-}
-
-async function loadEventStats(eventId) {
-    if (!eventId) return;
-
-    const container = document.getElementById('stats-details-container');
-    const totalEl = document.getElementById('stats-total-count');
-
-    container.innerHTML = '<div class="flex justify-center py-10"><i data-lucide="loader-2" class="animate-spin w-8 h-8 text-brand-600"></i></div>';
-    lucide.createIcons();
-
-    try {
-        const res = await fetch(`api_event_stats.php?event_id=${eventId}`);
-        const data = await res.json();
-
-        totalEl.innerText = data.total !== undefined ? data.total : 0;
-
-        if (!data.history || data.history.length === 0) {
-            container.innerHTML = '<div class="flex flex-col items-center justify-center h-40 text-gray-500"><i data-lucide="clipboard-x" class="w-8 h-8 mb-2"></i><p>Nenhum check-in registrado ainda.</p></div>';
-            lucide.createIcons();
-            return;
-        }
-
-        const maxCount = Math.max(...data.history.map(d => parseInt(d.count)));
-        let html = '<div class="space-y-5">';
-
-        data.history.forEach(day => {
-            const dateParts = day.date.split('-');
-            const dateStr = `${dateParts[2]}/${dateParts[1]}`;
-            const pct = maxCount > 0 ? (day.count / maxCount) * 100 : 0;
-
-            html += `
-                <div class="group">
-                    <div class="flex justify-between text-sm font-bold mb-1">
-                        <span class="text-gray-700">${dateStr}</span>
-                        <span class="text-brand-600">${day.count} check-ins</span>
-                    </div>
-                    <div class="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
-                        <div class="bg-brand-600 h-3 rounded-full transition-all duration-1000 group-hover:bg-brand-500" style="width: ${pct}%"></div>
-                    </div>
-                </div>
-            `;
-        });
-
-        html += '</div>';
-        container.innerHTML = html;
-
-    } catch (err) {
-        console.error("Erro stats:", err);
-        container.innerHTML = '<p class="text-red-500 text-center bg-red-50 p-4 rounded-lg">Erro ao carregar dados.</p>';
-    }
-}
-
-let qrInterval = null;
-
-function initAdminQR() {
-    const sel = document.getElementById('qr-sel');
-    if (sel) {
-        sel.innerHTML = '<option value="">Selecione...</option>' +
-            state.events.map(e => `<option value="${e.id}">${e.name}</option>`).join('');
-    }
-}
-
-function startQR() {
-    const eid = document.getElementById('qr-sel').value;
-    if (!eid || eid === '') return alert("Escolha um evento");
-
-    if (qrInterval) clearInterval(qrInterval);
-
-    const generate = async () => {
-        const view = document.getElementById('qr-view');
-        view.style.opacity = "0.5";
-
-        try {
-            const res = await fetch('api_refresh_qr.php', { method: 'POST', body: JSON.stringify({ event_id: eid }) });
-            const data = await res.json();
-
-            if (data.success) {
-                view.innerHTML = ''; // Limpa o antigo
-                view.style.opacity = "1";
-
-                new QRCode(view, {
-                    text: JSON.stringify({ eid: eid, t: data.token }),
-                    width: 256,
-                    height: 256,
-                    colorDark: "#000000",
-                    colorLight: "#ffffff",
-                    correctLevel: QRCode.CorrectLevel.H
-                });
-
-                console.log("QR Code atualizado: " + new Date().toLocaleTimeString());
-            }
-        } catch (err) {
-            console.error("Erro ao atualizar QR", err);
-        }
-    };
-    generate();
-    qrInterval = setInterval(generate, 30000);
-}
-
-
-async function onScan(decodedText) {
-    stopScanner();
-    const resDiv = document.getElementById('scan-result');
-    resDiv.classList.remove('hidden');
-    resDiv.innerHTML = '<div class="flex items-center justify-center gap-2"><i data-lucide="loader-2" class="animate-spin"></i> Validando...</div>';
-    lucide.createIcons();
-
-    try {
-        const qrData = JSON.parse(decodedText);
-        if (!qrData.eid || !qrData.t) throw new Error("QR Code inválido ou antigo.");
-
-        const res = await fetch('api_checkin.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                user_id: state.user.id,
-                event_id: qrData.eid,
-                token: qrData.t 
-            })
-        });
-
-        const data = await res.json();
-
-        if (data.success) {
-            resDiv.className = "mt-6 p-4 rounded-xl border border-green-600 bg-green-100 text-green-800 font-bold text-center shadow-inner";
-            resDiv.innerHTML = `<div class="flex flex-col items-center"><i data-lucide="check-circle" class="w-8 h-8 mb-2"></i>${data.message}</div>`;
-        } else {
-            throw new Error(data.message);
-        }
-    } catch (err) {
-        resDiv.className = "mt-6 p-4 rounded-xl border border-red-600 bg-red-100 text-red-800 font-bold text-center";
-        resDiv.innerHTML = `<div class="flex flex-col items-center"><i data-lucide="x-circle" class="w-8 h-8 mb-2"></i>${err.message}</div>`;
-    }
-    lucide.createIcons();
-}
-
 
 function initPixPayment(eventId) {
     const modal = document.getElementById('payment-modal');
@@ -957,52 +703,42 @@ function initPixPayment(eventId) {
     modal.classList.add('flex');
 
     const event = state.events.find(e => e.id == eventId);
-    const price = parseFloat(event.price).toFixed(2);
-
-    document.getElementById('pix-amount').innerText = `R$ ${price.replace('.', ',')}`;
-
+    document.getElementById('pix-amount').innerText = `R$ ${event.price}`;
     document.getElementById('pix-loader').classList.remove('hidden');
 
     fetch('api_pix_create.php', {
-        method: 'POST',
-        body: JSON.stringify({ user_id: state.user.id, event_id: eventId })
+         method: 'POST', body: JSON.stringify({ user_id: state.user.id, event_id: eventId })
     })
-        .then(r => r.json())
-        .then(d => {
-            document.getElementById('pix-loader').classList.add('hidden');
-
-            if (d.success) {
-                document.getElementById('pix-qr-img').src = "data:image/png;base64," + d.qr_img;
-                document.getElementById('pix-code-text').value = d.qr_code;
-
-                if (state.paymentTimer) clearInterval(state.paymentTimer);
-                state.paymentTimer = setInterval(() => checkPaymentStatus(d.payment_id), 5000);
-            } else {
-                alert("Erro ao gerar PIX: " + d.message);
-                closePaymentModal();
-            }
-        })
-        .catch(err => {
-            alert("Erro de conexão com Mercado Pago.");
-            closePaymentModal();
-        });
+    .then(r => r.json())
+    .then(d => {
+        document.getElementById('pix-loader').classList.add('hidden');
+        if(d.success) {
+             document.getElementById('pix-qr-img').src = "data:image/png;base64," + d.qr_img;
+             document.getElementById('pix-code-text').value = d.qr_code;
+             if(state.paymentTimer) clearInterval(state.paymentTimer);
+             state.paymentTimer = setInterval(() => checkPaymentStatus(d.payment_id), 5000);
+        } else {
+             alert("Erro Pix: " + d.message);
+             closePaymentModal();
+        }
+    })
+    .catch(err => {
+        alert("Erro de conexão com Mercado Pago.");
+        closePaymentModal();
+    });
 }
 
 async function checkPaymentStatus(pid) {
     try {
         const res = await fetch(`api_check_status.php?payment_id=${pid}`);
-        const data = await res.json();
-
-        if (data.status === 'approved') {
+        if((await res.json()).status === 'approved') {
             clearInterval(state.paymentTimer);
             document.getElementById('payment-content').classList.add('hidden');
             document.getElementById('payment-success').classList.remove('hidden');
             document.getElementById('payment-success').classList.add('flex');
-
-            state.enrollments.push(state.events.find(e => e.id == state.tempEventId));
-            loadMyEvents();
+            await fetchUserEnrollments();
         }
-    } catch (e) { console.log("Aguardando pgto..."); }
+    } catch(e) {}
 }
 
 function closePaymentModal() {
@@ -1011,40 +747,223 @@ function closePaymentModal() {
     document.getElementById('payment-content').classList.remove('hidden');
     document.getElementById('payment-success').classList.add('hidden');
     document.getElementById('payment-success').classList.remove('flex');
-
-    if (state.paymentTimer) clearInterval(state.paymentTimer);
+    if(state.paymentTimer) clearInterval(state.paymentTimer);
 }
 
 function copyPixCode() {
-    const copyText = document.getElementById("pix-code-text");
-    copyText.select();
-    navigator.clipboard.writeText(copyText.value);
-    alert("Código PIX copiado!");
+    navigator.clipboard.writeText(document.getElementById("pix-code-text").value);
+    alert("Copiado!");
 }
-async function cancelEnrollment(eventId) {
-    if (!confirm("Tem certeza de que deseja cancelar sua inscrição? Caso tenha sido paga, não haverá reembolso.")) return;
+
+async function adminOpenCert(userId, eventId, userName) {
+    if(!confirm(`Gerar certificado de ${userName}?`)) return;
+    try {
+        const res = await fetch(`api_certificate.php?user_id=${userId}&event_id=${eventId}`);
+        const result = await res.json();
+        if (result.success) openCertModalData(result.data, userName);
+        else alert(`⚠️ Certificado Indisponível.\n\nMotivo: ${result.message}\nPresença: ${result.percentage}%`);
+    } catch(e) { alert("Erro."); }
+}
+
+async function openCert(eventName, eventDate, eventId) {
+    try {
+        const res = await fetch(`api_certificate.php?user_id=${state.user.id}&event_id=${eventId}`);
+        const result = await res.json();
+        if (result.success) openCertModalData(result.data, state.user.name);
+        else alert(`🚫 BLOQUEADO\n\nSua presença: ${result.percentage}%\nMínimo exigido: 75%\n\n${result.debug_info}`);
+    } catch(e) { alert("Erro."); }
+}
+
+function openCertModalData(data, userName) {
+    document.getElementById('cert-name').innerText = userName;
+    document.getElementById('cert-event').innerText = data.event_name;
+    document.getElementById('cert-date').innerText = data.event_date;
+    document.getElementById('cert-hash').innerText = data.code;
+    const qrBox = document.getElementById('cert-qr-code');
+    qrBox.innerHTML = "";
+    new QRCode(qrBox, { text: "VALIDADO:" + data.code, width: 80, height: 80 });
+    document.getElementById('cert-modal').classList.remove('hidden');
+    document.getElementById('cert-modal').classList.add('flex');
+}
+
+function closeCert() { 
+    document.getElementById('cert-modal').classList.add('hidden'); 
+    document.getElementById('cert-modal').classList.remove('flex'); 
+}
+
+function initAdminQR() {
+    const sel = document.getElementById('qr-sel');
+    if(sel) sel.innerHTML = '<option>Selecione...</option>' + state.events.map(e => `<option value="${e.id}">${e.name}</option>`).join('');
+}
+
+let qrInterval = null;
+function startQR() { 
+    const eid = document.getElementById('qr-sel').value; 
+    if(!eid) return alert("Escolha um evento");
+    if(qrInterval) clearInterval(qrInterval);
+
+    const generate = async () => {
+        try {
+            const res = await fetch('api_refresh_qr.php', { method: 'POST', body: JSON.stringify({ event_id: eid }) });
+            const data = await res.json();
+            if(data.success) {
+                document.getElementById('qr-view').innerHTML = ''; 
+                new QRCode(document.getElementById('qr-view'), { text: JSON.stringify({ eid: eid, t: data.token }), width: 256, height: 256 });
+            }
+        } catch(e) {}
+    };
+    generate();
+    qrInterval = setInterval(generate, 30000);
+}
+
+async function onScan(decodedText) {
+    stopScanner();
+    document.getElementById('scan-result').classList.remove('hidden');
+    document.getElementById('scan-result').innerHTML = 'Validando...';
 
     try {
-        const res = await fetch('api_cancel_enrollment.php', {
+        const qrData = JSON.parse(decodedText); 
+        const res = await fetch('api_checkin.php', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: state.user.id, event_id: qrData.eid, token: qrData.t })
+        });
+        const data = await res.json();
+        document.getElementById('scan-result').innerHTML = data.success ? "✅ " + data.message : "❌ " + data.message;
+    } catch (err) { document.getElementById('scan-result').innerHTML = "❌ QR Inválido"; }
+}
+
+function startScanner() { 
+    document.getElementById('scanner-camera-view').classList.remove('hidden'); 
+    document.getElementById('scanner-start-view').classList.add('hidden'); 
+    state.scanner = new Html5Qrcode("reader"); 
+    state.scanner.start({facingMode:"environment"}, {fps:10}, onScan);
+}
+
+function stopScanner() { 
+    if(state.scanner) {
+        state.scanner.stop().then(() => { 
+            state.scanner.clear(); 
+            document.getElementById('scanner-camera-view').classList.add('hidden'); 
+            document.getElementById('scanner-start-view').classList.remove('hidden'); 
+            state.scanner = null;
+        });
+    }
+}
+
+function initStatsPage() {
+    const sel = document.getElementById('stats-event-select');
+    if(sel) sel.innerHTML = '<option>Selecione...</option>' + state.events.map(e => `<option value="${e.id}">${e.name}</option>`).join('');
+}
+
+async function loadEventStats(eventId) {
+    if(!eventId) return;
+    const container = document.getElementById('stats-details-container');
+    const totalEl = document.getElementById('stats-total-count');
+    container.innerHTML = '<div class="flex justify-center py-10"><i data-lucide="loader-2" class="animate-spin"></i></div>';
+    lucide.createIcons();
+
+    try {
+        const res = await fetch(`api_event_stats.php?event_id=${eventId}`);
+        const data = await res.json();
+        totalEl.innerText = data.total || 0;
+
+        if (!data.history || data.history.length === 0) {
+            container.innerHTML = '<p class="text-center text-gray-500">Sem dados.</p>'; return;
+        }
+
+        const maxCount = Math.max(...data.history.map(d => parseInt(d.count)));
+        let html = '<div class="space-y-4">';
+        data.history.forEach(day => {
+            const dateStr = day.date.split('-').reverse().slice(0,2).join('/');
+            const pct = maxCount > 0 ? (day.count / maxCount) * 100 : 0;
+            html += `<div><div class="flex justify-between text-sm mb-1"><span>${dateStr}</span><span>${day.count}</span></div><div class="w-full bg-gray-100 h-2 rounded-full"><div class="bg-brand-600 h-2 rounded-full" style="width: ${pct}%"></div></div></div>`;
+        });
+        html += '</div>';
+        container.innerHTML = html;
+    } catch(e) { container.innerHTML = 'Erro.'; }
+}
+
+function escapeHtml(text) {
+    if (!text) return "";
+    return text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+function filterUsersTable(text) {
+    if (!state.usersList || state.usersList.length === 0) return;
+
+    const term = text.toLowerCase();
+
+    const filtered = state.usersList.filter(u => 
+        u.name.toLowerCase().includes(term) || 
+        u.email.toLowerCase().includes(term)
+    );
+
+    renderUsersTable(filtered);
+}
+// --- SISTEMA DE AVALIAÇÃO ---
+let currentReviewEventId = null;
+let currentRating = 0;
+
+function openReviewModal(eventId) {
+    currentReviewEventId = eventId;
+    currentRating = 0;
+    document.getElementById('review-comment').value = '';
+    updateStarsUI(); // Reseta estrelas
+    
+    const modal = document.getElementById('review-modal');
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+}
+
+function closeReviewModal() {
+    document.getElementById('review-modal').classList.add('hidden');
+    document.getElementById('review-modal').classList.remove('flex');
+}
+
+function setRating(n) {
+    currentRating = n;
+    updateStarsUI();
+}
+
+function updateStarsUI() {
+    const stars = document.querySelectorAll('.star-btn');
+    stars.forEach((btn, index) => {
+        if (index < currentRating) {
+            btn.classList.remove('text-gray-300');
+            btn.classList.add('text-yellow-400');
+        } else {
+            btn.classList.add('text-gray-300');
+            btn.classList.remove('text-yellow-400');
+        }
+    });
+}
+
+async function submitReview() {
+    if (currentRating === 0) return alert("Por favor, selecione pelo menos 1 estrela.");
+
+    const comment = document.getElementById('review-comment').value;
+    
+    try {
+        const res = await fetch('api_add_review.php', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 user_id: state.user.id,
-                event_id: eventId
+                event_id: currentReviewEventId,
+                rating: currentRating,
+                comment: comment
             })
         });
-
+        
         const data = await res.json();
-
         if (data.success) {
-            alert("🗑️ Inscrição cancelada com sucesso!");
-            state.enrollments = state.enrollments.filter(e => e.id != eventId);
-            loadMyEvents();
+            alert("Obrigado pela avaliação!");
+            closeReviewModal();
         } else {
-            alert("Erro: " + data.message);
+            alert(data.message);
         }
-    } catch (err) {
-        console.error(err);
-        alert("Erro de conexão ao cancelar.");
-    }
+    } catch(e) { alert("Erro de conexão."); }
 }
