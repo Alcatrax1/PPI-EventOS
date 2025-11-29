@@ -4,7 +4,7 @@ header("Access-Control-Allow-Origin: *");
 require 'db_connect.php';
 
 try {
-    // Adicionei a subquery AVG(r.rating) para calcular a média
+   
     $sql = "SELECT e.*, 
             (SELECT COUNT(*) FROM enrollments WHERE event_id = e.id) as enrolled_count,
             (SELECT COALESCE(AVG(rating), 0) FROM reviews WHERE event_id = e.id) as avg_rating

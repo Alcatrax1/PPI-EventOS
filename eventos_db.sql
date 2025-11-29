@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Tempo de geração: 27/11/2025 às 04:20
+-- Tempo de geração: 29/11/2025 às 17:54
 -- Versão do servidor: 10.4.32-MariaDB
 -- Versão do PHP: 8.0.30
 
@@ -39,7 +39,7 @@ CREATE TABLE `checkins` (
 --
 
 INSERT INTO `checkins` (`id`, `event_id`, `user_id`, `checkin_time`) VALUES
-(1, 14, 27, '2025-11-26 23:07:35');
+(5, 26, 27, '2025-11-29 13:29:08');
 
 -- --------------------------------------------------------
 
@@ -63,8 +63,7 @@ CREATE TABLE `enrollments` (
 --
 
 INSERT INTO `enrollments` (`id`, `user_id`, `event_id`, `enrolled_at`, `payment_id`, `pix_code`, `payment_status`, `ticket_token`) VALUES
-(1, 27, 14, '2025-11-27 02:06:56', '135400987230', '00020126580014br.gov.bcb.pix0136b9bfa6da-d1f0-4a6a-b18c-85b03a22521a520400005303986540522.005802BR5924DALEONARDO202302131853226009Sao Paulo62250521mpqrinter135400987230630427EA', 'approved', NULL),
-(2, 27, 13, '2025-11-27 03:14:41', NULL, NULL, 'approved', NULL);
+(9, 27, 26, '2025-11-29 16:20:13', NULL, NULL, 'approved', NULL);
 
 -- --------------------------------------------------------
 
@@ -83,16 +82,18 @@ CREATE TABLE `events` (
   `required_checkins` int(11) DEFAULT 1,
   `qr_token` varchar(64) DEFAULT NULL,
   `qr_expires_at` datetime DEFAULT NULL,
-  `capacity` int(11) DEFAULT 50
+  `capacity` int(11) DEFAULT 50,
+  `event_hours` int(11) DEFAULT 0,
+  `end_time` time DEFAULT NULL,
+  `end_date` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Despejando dados para a tabela `events`
 --
 
-INSERT INTO `events` (`id`, `name`, `description`, `date`, `location`, `price`, `image_url`, `required_checkins`, `qr_token`, `qr_expires_at`, `capacity`) VALUES
-(13, 'BugCup 2025', 'Maratona de Programação', '2017-11-29 19:50:00', 'Lab B11 Iffar Campus Panambi', 10.00, 'uploads/evt_1764197937_4382.png', 1, '8d3f8e487425de79c8c64596816b1547', '2025-11-27 02:54:35', 50),
-(14, 'teste', 'teste', '0222-02-23 22:02:00', '22', 22.00, 'uploads/evt_1764208574_5768.png', 1, '926759af80709dbb76d674b24ea07bf8', '2025-11-27 03:48:24', 222);
+INSERT INTO `events` (`id`, `name`, `description`, `date`, `location`, `price`, `image_url`, `required_checkins`, `qr_token`, `qr_expires_at`, `capacity`, `event_hours`, `end_time`, `end_date`) VALUES
+(26, 'teste2', '2', '2025-11-29 13:00:00', 'Panambi', 0.00, '', 1, '6bfca4568c7b05a5590bd7ed61ad3adb', '2025-11-29 17:32:51', NULL, 20, '13:02:00', '2025-11-29 00:00:00');
 
 -- --------------------------------------------------------
 
@@ -108,13 +109,6 @@ CREATE TABLE `reviews` (
   `comment` text DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Despejando dados para a tabela `reviews`
---
-
-INSERT INTO `reviews` (`id`, `user_id`, `event_id`, `rating`, `comment`, `created_at`) VALUES
-(1, 27, 13, 5, 'Pedro lIndo\n', '2025-11-27 03:16:50');
 
 -- --------------------------------------------------------
 
@@ -137,8 +131,8 @@ CREATE TABLE `users` (
 
 INSERT INTO `users` (`id`, `name`, `email`, `password`, `role`, `created_at`) VALUES
 (6, 'pedro', 'admin@admin.com', '$2y$10$Z0Dx5VYj6DchDAaiYroYaOFtTi6qmJ1DBkLWRRJxmPa5RNVQ2hsNa', 'admin', '2025-11-24 22:43:27'),
-(23, 'pedro', 'pedro22@gmail.com', '$2y$10$uHwIhkVHBPg6mXp/.yXkjukQsYUZZou.FZ6DtYgqqH.biaIQru9Im', 'servidor', '2025-11-27 01:06:47'),
-(27, 'Pedro', 'pedro@gmail.com', '$2y$10$RdM3j8PJWxwOvoVIQaKJuuYwjRVfDzOH1qckKq52JYUWxbKhkv4um', 'user', '2025-11-27 02:06:49');
+(23, 'Servidor', 'pedro22@gmail.com', '$2y$10$uHwIhkVHBPg6mXp/.yXkjukQsYUZZou.FZ6DtYgqqH.biaIQru9Im', 'servidor', '2025-11-27 01:06:47'),
+(27, 'User', 'pedro@gmail.com', '$2y$10$RdM3j8PJWxwOvoVIQaKJuuYwjRVfDzOH1qckKq52JYUWxbKhkv4um', 'user', '2025-11-27 02:06:49');
 
 --
 -- Índices para tabelas despejadas
@@ -189,19 +183,19 @@ ALTER TABLE `users`
 -- AUTO_INCREMENT de tabela `checkins`
 --
 ALTER TABLE `checkins`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
 -- AUTO_INCREMENT de tabela `enrollments`
 --
 ALTER TABLE `enrollments`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
 
 --
 -- AUTO_INCREMENT de tabela `events`
 --
 ALTER TABLE `events`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=15;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=27;
 
 --
 -- AUTO_INCREMENT de tabela `reviews`

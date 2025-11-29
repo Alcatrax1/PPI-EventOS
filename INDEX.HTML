@@ -9,7 +9,7 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="STYLE.CSS">
     <script>
         tailwind.config = {
             theme: {
@@ -255,10 +255,12 @@
                     </div>
                 </div>
 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-    <button id="btn-dash-create" onclick="navigateTo('admin-event-form')" class="bg-white p-8 rounded-2xl shadow hover:shadow-xl hover:-translate-y-1 transition-all font-bold text-lg flex flex-col items-center gap-4 group">
-        <div class="p-4 bg-blue-50 rounded-full group-hover:bg-blue-100 transition-colors"><i data-lucide="plus" class="w-8 h-8 text-blue-600"></i></div>
-        Criar Evento
-    </button>
+   <button type="button" onclick="prepareCreateEvent()" class="bg-white p-8 rounded-2xl shadow hover:shadow-xl hover:-translate-y-1 transition-all font-bold text-lg flex flex-col items-center gap-4 group">
+    <div class="p-4 bg-blue-50 rounded-full group-hover:bg-blue-100 transition-colors">
+        <i data-lucide="plus" class="w-8 h-8 text-blue-600"></i>
+    </div>
+    Criar Evento
+</button>
     
     <button id="btn-dash-qr" onclick="navigateTo('admin-qrcode')" class="bg-white p-8 rounded-2xl shadow hover:shadow-xl hover:-translate-y-1 transition-all font-bold text-lg flex flex-col items-center gap-4 group">
         <div class="p-4 bg-purple-50 rounded-full group-hover:bg-purple-100 transition-colors"><i data-lucide="qr-code" class="w-8 h-8 text-purple-600"></i></div>
@@ -281,7 +283,8 @@
                     <div id="admin-events-list" class="space-y-3"></div>
                 </div>
             </div>
-        </section><section id="page-admin-event-form" class="page-section">
+        </section>
+        <section id="page-admin-event-form" class="page-section">
     <div class="max-w-3xl mx-auto px-4 py-12">
         
         <button type="button" onclick="cancelEventForm()" class="text-gray-500 mb-6 flex gap-2 items-center hover:text-brand-600 font-medium cursor-pointer transition-colors">
@@ -290,8 +293,7 @@
 
         <div class="bg-white p-8 rounded-2xl shadow-xl border border-gray-100">
             <h2 class="text-2xl font-bold mb-6 text-gray-900">Gerenciar Evento</h2>
-            
-            <form onsubmit="handleEventSubmit(event)" class="space-y-6">
+            <form onsubmit="handleEventSubmit(event)" class="space-y-5">
                 
                 <div>
                     <label class="block text-sm font-bold text-gray-700 mb-1">Nome do Evento</label>
@@ -299,36 +301,44 @@
                 </div>
                 
                 <div>
-                    <label class="block text-sm font-bold text-gray-700 mb-1">Descrição Detalhada</label>
-                    <textarea id="evt-desc" class="w-full border border-gray-200 p-4 rounded-xl bg-gray-50 focus:bg-white focus:ring-2 focus:ring-brand-500 outline-none transition-all" rows="3" placeholder="Sobre o que é o evento..."></textarea>
+                    <label class="block text-sm font-bold text-gray-700 mb-1">Descrição</label>
+                    <textarea id="evt-desc" class="w-full border border-gray-200 p-4 rounded-xl bg-gray-50 focus:bg-white focus:ring-2 focus:ring-brand-500 outline-none transition-all" rows="3" placeholder="Detalhes do evento..."></textarea>
                 </div>
-                
-                <div class="grid grid-cols-2 gap-4">
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 bg-gray-50 p-4 rounded-xl border border-gray-200">
                     <div>
-                        <label class="block text-sm font-bold text-gray-700 mb-1">Data</label>
-                        <input type="date" id="evt-date" class="w-full border border-gray-200 p-4 rounded-xl bg-gray-50 focus:bg-white outline-none" required>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">Início do Evento</label>
+                        <div class="flex gap-2">
+                            <input type="date" id="evt-date" class="flex-1 p-3 border rounded-lg focus:ring-2 focus:ring-brand-500 outline-none bg-white" required>
+                            <input type="time" id="evt-time" class="w-28 p-3 border rounded-lg focus:ring-2 focus:ring-brand-500 outline-none bg-white" required>
+                        </div>
                     </div>
+
                     <div>
-                        <label class="block text-sm font-bold text-gray-700 mb-1">Horário</label>
-                        <input type="time" id="evt-time" class="w-full border border-gray-200 p-4 rounded-xl bg-gray-50 focus:bg-white outline-none" required>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">Término do Evento</label>
+                        <div class="flex gap-2">
+                            <input type="date" id="evt-date-end" class="flex-1 p-3 border rounded-lg focus:ring-2 focus:ring-brand-500 outline-none bg-white" required>
+                            <input type="time" id="evt-end-time" class="w-28 p-3 border rounded-lg focus:ring-2 focus:ring-brand-500 outline-none bg-white" required>
+                        </div>
                     </div>
                 </div>
 
-                <div class="bg-blue-50 p-4 rounded-xl border border-blue-100">
-                    <label class="block text-sm font-bold text-blue-800 mb-1">Duração (Dias/Check-ins)</label>
-                    <div class="flex items-center gap-3">
-                        <input type="number" id="evt-days" class="w-24 border border-blue-200 p-3 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 outline-none text-center font-bold text-lg" 
-                               value="1" min="1" placeholder="1">
-                        <div class="text-sm text-blue-600 leading-tight">
-                            <p>Quantidade de presenças para 100%.</p>
-                            <p class="text-xs opacity-75">Ex: Evento de 3 dias = coloque 3.</p>
-                        </div>
+                <div class="grid grid-cols-2 gap-4 bg-blue-50 p-4 rounded-xl border border-blue-100">
+                    <div>
+                        <label class="block text-sm font-bold text-blue-800 mb-1">Dias de Evento</label>
+                        <input type="number" id="evt-days" class="w-full border border-blue-200 p-3 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 outline-none" value="1" min="1">
+                        <p class="text-xs text-blue-600 mt-1">Para calcular 75% de presença.</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-blue-800 mb-1">Horas (Certificado)</label>
+                        <input type="number" id="evt-hours" class="w-full border border-blue-200 p-3 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Ex: 4">
+                        <p class="text-xs text-blue-600 mt-1">Carga horária total.</p>
                     </div>
                 </div>
 
                 <div>
                     <label class="block text-sm font-bold text-gray-700 mb-1">Localização</label>
-                    <input id="evt-loc" class="w-full border border-gray-200 p-4 rounded-xl bg-gray-50 focus:bg-white outline-none" placeholder="Ex: Auditório A ou Online" required>
+                    <input id="evt-loc" class="w-full border border-gray-200 p-4 rounded-xl bg-gray-50 focus:bg-white outline-none" placeholder="Localização" required>
                 </div>
                 
                 <div class="grid grid-cols-2 gap-4">
@@ -338,37 +348,23 @@
                     </div>
                     <div>
                         <label class="block text-sm font-bold text-gray-700 mb-1">Preço (R$)</label>
-                        <div class="relative">
-                            <span class="absolute left-4 top-4 text-gray-500 font-bold">R$</span>
-                            <input type="number" id="evt-price" class="w-full pl-12 p-4 border border-gray-200 rounded-xl bg-gray-50 focus:bg-white outline-none" placeholder="0.00" step="0.01">
-                        </div>
+                        <input type="number" id="evt-price" class="w-full border border-gray-200 p-4 rounded-xl bg-gray-50 focus:bg-white outline-none" placeholder="0.00" step="0.01">
                     </div>
                 </div>
                 
-                <div>
-                    <label class="block text-sm font-bold text-gray-700 mb-1">Capa do Evento</label>
-                    <div class="border-2 border-dashed border-gray-300 rounded-xl h-64 relative flex items-center justify-center bg-gray-50 overflow-hidden hover:bg-gray-100 transition group">
-                        
-                        <input type="file" id="evt-img-file" accept="image/*" 
-                            class="absolute inset-0 w-full h-full opacity-0 z-20 cursor-pointer" 
-                            onchange="previewImage(this)">
-
-                        <div id="upload-ui" class="text-center pointer-events-none flex flex-col items-center transition-opacity duration-300">
-                            <div class="bg-white p-4 rounded-full shadow-sm mb-3 group-hover:scale-110 transition-transform">
-                                <i data-lucide="image-plus" class="w-8 h-8 text-brand-600"></i>
-                            </div>
-                            <p class="text-sm font-bold text-gray-600">Clique para adicionar imagem</p>
-                            <p class="text-xs text-gray-400 mt-1">JPG, PNG ou WEBP</p>
-                            <p id="file-name-display" class="text-xs text-brand-600 font-bold mt-2 hidden"></p>
+                <div class="border-2 border-dashed border-gray-300 rounded-xl h-64 relative flex items-center justify-center bg-gray-50 overflow-hidden hover:bg-gray-100 transition group">
+                    <input type="file" id="evt-img-file" accept="image/*" class="absolute inset-0 w-full h-full opacity-0 z-20 cursor-pointer" onchange="previewImage(this)">
+                    <div id="upload-ui" class="text-center pointer-events-none flex flex-col items-center transition-opacity duration-300">
+                        <div class="bg-white p-4 rounded-full shadow-sm mb-3 group-hover:scale-110 transition-transform">
+                            <i data-lucide="image-plus" class="w-8 h-8 text-brand-600"></i>
                         </div>
-
-                        <img id="image-preview" src="" class="absolute inset-0 w-full h-full object-contain hidden z-10 bg-gray-100">
-                    </div>     
-                </div>           
+                        <p class="text-sm font-bold text-gray-600">Clique para adicionar capa</p>
+                        <p class="text-xs text-gray-400 mt-1">JPG, PNG ou WEBP</p>
+                    </div>
+                    <img id="image-preview" src="" class="absolute inset-0 w-full h-full object-contain hidden z-10 bg-gray-100">
+                </div>                
                 
-                <button class="w-full bg-brand-600 text-white py-4 rounded-xl font-bold text-lg shadow-lg hover:bg-brand-700 transition-all">
-                    Publicar Evento
-                </button>
+                <button class="w-full bg-brand-600 text-white py-4 rounded-xl font-bold text-lg shadow-lg hover:bg-brand-700 transition-all">Publicar Evento</button>
             </form>
         </div>
     </div>
@@ -679,8 +675,8 @@
                 <div class="space-y-4 text-lg md:text-xl text-gray-700 font-serif leading-relaxed max-w-4xl">
                     <p>Concluiu com êxito a participação no evento</p>
                     <p class="text-3xl font-bold text-yellow-700 uppercase py-2" id="cert-event">Nome do Evento</p>
-                    <p>Realizado em <strong id="cert-date">00/00/0000</strong> • <span id="cert-loc">Local</span></p>
-                </div>
+<p>Realizado em <strong id="cert-date">00/00/0000</strong> com carga horária de <strong id="cert-hours">0</strong> horas.</p>
+<p class="text-sm text-gray-500 mt-1" id="cert-loc">Local</p>                </div>
 
                 <div class="mt-auto pt-16 w-full flex flex-col md:flex-row justify-between items-end px-10 gap-10">
 

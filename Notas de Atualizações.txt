@@ -1,4 +1,4 @@
-Nota dia 24/11/2025 - Estruturação Inicial e Painel Administrativo
+Nota dia 24/11/2025 - Estruturação Inicial e Painel Administrativo 1.3
 Modificações realizadas:
 
 Frontend (Visual): Reformulação completa do layout do Perfil do Usuário, adicionando banner de capa, avatar com iniciais e estatísticas de eventos.
@@ -15,7 +15,7 @@ Criação inicial das tabelas users, events e enrollments.
 
 Inserção do usuário "Super Admin" padrão.
 
-Nota dia 25/11/2025 - Sistema de Check-in e Certificados
+Nota dia 25/11/2025 - Sistema de Check-in e Certificados 1.4
 Modificações realizadas:
 
 Scanner QR: Integração da câmera para leitura de QR Codes. Agora, ao escanear o código, o sistema valida o usuário e registra a presença automaticamente no banco.
@@ -32,7 +32,7 @@ Adição da coluna required_checkins na tabela events para definir a duração d
 
 Criação da tabela checkins para log de presença.
 
-Nota dia 26/11/2025 - Integração de Pagamentos e Fluxo de Inscrição
+Nota dia 26/11/2025 - Integração de Pagamentos e Fluxo de Inscrição 1.6
 Modificações realizadas:
 
 Mercado Pago (Pix): Integração completa com a API de pagamentos. Agora o sistema gera um QR Code Pix real (Copia e Cola) e verifica o status do pagamento a cada 5 segundos.
@@ -41,9 +41,9 @@ UX de Inscrição: Substituição do botão simples por um Modal de Detalhes (Ca
 
 Meus Ingressos: Implementação de status visual nos cards:
 
-🟡 Pendente: Exibe botão "Pagar Agora" e bloqueia o certificado.
+Pendente: Exibe botão "Pagar Agora" e bloqueia o certificado.
 
-🟢 Confirmado: Libera o botão "Certificado".
+ Confirmado: Libera o botão "Certificado".
 
 Segurança: Criação do arquivo config_mp.php isolado para proteger o Token de Acesso e configuração do .gitignore para não subir credenciais para o repositório.
 
@@ -51,7 +51,7 @@ Banco de Dados:
 
 Alteração na tabela enrollments para incluir colunas financeiras: payment_id, pix_code, payment_status e ticket_token.
 
-Nota dia 27/11/2025 (Manhã) - Segurança Anti-Fraude e Avaliações
+Nota dia 27/11/2025 (Manhã) - Segurança Anti-Fraude e Avaliações 1.7
 Modificações realizadas:
 
 QR Code Dinâmico: O QR Code projetado pelo Admin agora muda seu token criptografado a cada 30 segundos, impedindo que alunos tirem fotos para passar para colegas (anti-fraude).
@@ -67,3 +67,83 @@ Banco de Dados:
 Criação da tabela reviews para armazenar comentários e notas.
 
 Adição das colunas qr_token e qr_expires_at na tabela events para a lógica de segurança rotativa.
+
+Dia 28/11/2025 e 29/11/2025 (Foco em Usuário e Validações)  1.8
+
+Implementação da funcionalidade que permite ao usuário alterar o próprio nome no painel.
+
+Ajustes na verificação automática do Pix com o Mercado Pago para liberar o ingresso.
+
+Refinamento da lógica de 75% de presença.
+
+Atualização para impedir check-ins duplicados no mesmo dia e validar o horário do evento.
+
+Manutenção e Correções do Sistema EventOS dia 29/11/2025
+
+Inclusão dos novos campos no banco de dados: Data de Término, Capacidade e Horas Complementares.
+
+Atualização da consulta SQL para buscar e exibir essas novas informações nos cards.
+
+Correção crítica para permitir que o Admin edite um evento e os campos antigos venham preenchidos (antes vinham vazios).
+
+Reformulação do formulário de eventos com labels (títulos) acima dos inputs e organização das datas em colunas.
+
+1. Frontend (Interface e Lógica JavaScript)
+A. Correção Crítica de Sintaxe
+Problema: O arquivo script.js possuía uma chave de fechamento } extra no final do arquivo e, posteriormente, uma ausente na função prepareCreateEvent.
+
+Solução: Ajustada a estrutura de blocos do código para garantir que o interpretador JavaScript executasse o arquivo sem erros de sintaxe.
+
+B. Módulo de Gestão de Eventos (Painel Admin)
+Botão "Editar":
+
+Correção: Adicionadas aspas na passagem do ID do evento (editEvent('${e.id}')) para evitar erros quando o ID não é numérico.
+
+Melhoria: Reescrevia a função editEvent para tratar corretamente a separação de data e hora ao preencher o formulário, evitando erros de fuso horário ou campos vazios.
+
+Botão "Criar Evento":
+
+Correção: A função prepareCreateEvent limpava o formulário mas não redirecionava o usuário. Foi adicionado o comando MapsTo('admin-event-form') para abrir a tela correta.
+
+Envio de Formulário:
+
+Correção: A função handleEventSubmit foi atualizada para capturar e enviar explicitamente os campos end_date, end_time, capacity e event_hours, que antes eram ignorados.
+
+C. Visualização de Ingressos (Dashboard do Usuário)
+Logica de Status do Evento:
+
+Problema: Eventos eram marcados como "Concluídos" assim que o dia começava (00:00), mesmo que o horário fosse mais tarde.
+
+Solução: Implementada nova lógica comparando a data/hora atual com a Data e Hora de Término exatas.
+
+Novo Status "Acontecendo":
+
+Melhoria: Criado um estado intermediário para eventos em andamento. Agora, o botão muda para "Check-in" enquanto o evento ocorre, facilitando o acesso ao Scanner.
+
+Prevenção de Falhas (Tela Branca):
+
+Correção: Adicionado tratamento de erro (try-catch) e verificações de nulidade na função loadMyEvents. Isso impede que um único evento com data inválida no banco de dados trave o carregamento de toda a lista de ingressos.
+
+2. Backend (API e Banco de Dados PHP)
+A. Atualização de Eventos (api_update_event.php)
+Problema: Ao editar um evento, as alterações de Horário de Término, Data de Término, Capacidade e Carga Horária não eram salvas no banco.
+
+Solução:
+
+Adicionada a captura das variáveis $_POST['end_time'], ['end_date'], ['capacity'] e ['event_hours'].
+
+Atualizada a query SQL UPDATE para incluir estas colunas.
+
+Ajustado o array de parâmetros (bind params) para corresponder à nova query.
+
+B. Geração de Certificados (api_certificate.php)
+Problema: O certificado exibia a carga horária como undefined.
+
+Solução:
+
+Alterada a query SQL SELECT para buscar explicitamente a coluna event_hours.
+
+Adicionado o campo event_hours na resposta JSON enviada para o frontend.
+
+3. Resumo do Impacto
+As correções garantiram que o ciclo de vida completo do evento funcione corretamente: desde a criação e edição com horários precisos, passando pela exibição correta do status para o usuário (Pendente > Acontecendo > Concluído), até a emissão do certificado com os dados corretos de carga horária.

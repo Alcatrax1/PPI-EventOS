@@ -12,7 +12,7 @@ if (!$user_id || !$event_id) {
 }
 
 try {
-    $stmt = $conn->prepare("SELECT name, date, location, required_checkins FROM events WHERE id = ?");
+    $stmt = $conn->prepare("SELECT name, date, location, required_checkins, event_hours FROM events WHERE id = ?");
     $stmt->execute([$event_id]);
     $event = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -25,33 +25,35 @@ try {
     $stmtCheck->execute([$user_id, $event_id]);
     $myCheckins = $stmtCheck->fetchColumn();
 
-    $required = (int)$event['required_checkins'];
-    if ($required <= 0) $required = 1; 
+    $totalDias = (int)$event['required_checkins'];
+    if ($totalDias <= 0) $totalDias = 1; 
 
-    $percentage = ($myCheckins / $required) * 100;
+    $porcentagem = ($myCheckins / $totalDias) * 100;
     
-    $displayPercentage = $percentage > 100 ? 100 : $percentage;
+    $porcentagemVisual = round($porcentagem);
+    if($porcentagemVisual > 100) $porcentagemVisual = 100;
 
-    if ($percentage >= 75) {
-        $code = strtoupper(substr(md5($user_id . $event_id . 'certificado2024'), 0, 16));
+    if ($porcentagem >= 75) {
+        $code = strtoupper(substr(md5($user_id . $event_id . 'certificado'), 0, 16));
         $formattedCode = implode('-', str_split($code, 4));
 
         echo json_encode([
             "success" => true,
-            "percentage" => round($displayPercentage),
+            "percentage" => $porcentagemVisual,
             "data" => [
                 "event_name" => $event['name'],
                 "event_date" => date('d/m/Y', strtotime($event['date'])),
                 "event_loc"  => $event['location'],
+                "event_hours" => $event['event_hours'] ?? 0, 
                 "code" => $formattedCode
             ]
         ]);
     } else {
         echo json_encode([
             "success" => false,
-            "percentage" => round($displayPercentage),
-            "debug_info" => "Você tem $myCheckins de $required presenças.",
-            "message" => "Presença insuficiente."
+            "percentage" => $porcentagemVisual,
+            "debug_info" => "Você tem $myCheckins de $totalDias presenças.",
+            "message" => "Presença insuficiente para o certificado."
         ]);
     }
 

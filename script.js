@@ -90,22 +90,19 @@ function toggleAuth(isLogin) {
     document.getElementById('tab-login').className = isLogin ? "flex-1 py-2.5 rounded-lg bg-white shadow text-sm font-bold text-gray-900 transition-all" : "flex-1 py-2.5 rounded-lg text-gray-500 text-sm font-bold transition-all";
     document.getElementById('tab-register').className = !isLogin ? "flex-1 py-2.5 rounded-lg bg-white shadow text-sm font-bold text-gray-900 transition-all" : "flex-1 py-2.5 rounded-lg text-gray-500 text-sm font-bold transition-all";
 }
-
 function navigateTo(pageId) {
     const role = state.user?.role;
     const isStaff = role === 'admin' || role === 'servidor';
 
     if ((['dashboard', 'profile', 'user-scanner'].includes(pageId)) && !state.user) return navigateTo('login');
     
-    if (pageId.startsWith('admin') && !isStaff) return navigateTo('home');
+    
+if (pageId.startsWith('admin') && role === 'usuario') 
+    return navigateTo('home');
 
     if (role === 'servidor') {
         if (pageId === 'admin-users') {
-            alert("Apenas Administradores podem gerenciar usuários.");
-            return;
-        }
-        if (pageId === 'admin-qrcode') {
-            alert("Apenas Administradores podem gerar QR Codes.");
+            alert("Acesso negado: Apenas Administradores podem gerenciar usuários.");
             return;
         }
     }
@@ -191,79 +188,123 @@ function renderProfile() {
         document.getElementById('profile-role-badge').innerText = state.user.role.toUpperCase();
         document.getElementById('profile-stats-events').innerText = state.enrollments.length || '0'; 
     }
-}
-
-async function updateProfile(e) {
+}async function updateProfile(e) {
     e.preventDefault();
-    alert('Funcionalidade de atualizar perfil ainda não conectada ao banco.');
-}
-async function renderAdminStatsOverview() {
-    // 1. Atualiza a lista de eventos na memória
+    
+    const newName = document.getElementById('profile-name-input').value;
+    const btn = e.target.querySelector('button');
+    const originalText = btn.innerText;
+    
+    if (!newName) return alert("O nome não pode ficar vazio.");
+
+    btn.innerText = "Salvando...";
+    btn.disabled = true;
+
+    try {
+        const res = await fetch('api_update_profile.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                user_id: state.user.id,
+                name: newName
+            })
+        });
+
+        const data = await res.json();
+
+        if (data.success) {
+            alert("✅ Nome alterado com sucesso!");
+            
+            state.user.name = newName;
+            localStorage.setItem('user', JSON.stringify(state.user));
+            
+            renderProfile();
+        } else {
+            alert("Erro: " + data.message);
+        }
+
+    } catch (err) {
+        console.error(err);
+        alert("Erro de conexão ao atualizar perfil.");
+    } finally {
+        btn.innerText = originalText;
+        btn.disabled = false;
+    }
+}async function renderAdminStatsOverview() {
     await fetchEvents();
 
-    // 2. Busca os números dos cards (Eventos, Check-ins, Usuários)
     try {
         const res = await fetch('api_dashboard_stats.php');
         const data = await res.json();
-        
         if (data.success) {
-            // Verifica se os elementos existem antes de preencher
-            const elEv = document.getElementById('adm-stat-ev');
-            const elCk = document.getElementById('adm-stat-ck');
-            const elUs = document.getElementById('adm-stat-us');
-            
-            if(elEv) elEv.innerText = data.events;
-            if(elCk) elCk.innerText = data.checkins;
-            if(elUs) elUs.innerText = data.users;
+            if(document.getElementById('adm-stat-ev')) document.getElementById('adm-stat-ev').innerText = data.events;
+            if(document.getElementById('adm-stat-ck')) document.getElementById('adm-stat-ck').innerText = data.checkins;
+            if(document.getElementById('adm-stat-us')) document.getElementById('adm-stat-us').innerText = data.users;
         }
-    } catch (err) {
-        console.warn("Não foi possível carregar as estatísticas do painel.");
-    }
+    } catch (err) { console.error(err); }
 
-    // 3. Desenha a lista de eventos recentes
+    const role = state.user.role;
+    const isAdmin = role === 'admin'; 
+    const isStaff = role === 'admin' || role === 'servidor'; 
+    
+    const btnUsers = document.getElementById('btn-dash-users');
+    const btnQR = document.getElementById('btn-dash-qr');
+    
+    if(btnUsers) btnUsers.style.display = isAdmin ? 'flex' : 'none';
+    
+    if(btnQR) btnQR.style.display = isStaff ? 'flex' : 'none';
+
     const list = document.getElementById('admin-events-list');
-    if (!list) return; // Proteção se o HTML não existir
+    if (!list) return;
 
-    if (!state.events || state.events.length === 0) {
-        list.innerHTML = '<div class="text-center py-8 text-gray-400">Nenhum evento encontrado.</div>';
+    if (state.events.length === 0) {
+        list.innerHTML = '<p class="text-gray-400 text-center py-6">Nenhum evento criado.</p>';
         return;
     }
 
-    list.innerHTML = state.events.slice(0, 10).map(e => `
+    list.innerHTML = state.events.slice(0, 10).map(e => {
+        const qrBtn = isStaff ? 
+            `<button onclick="navigateTo('admin-qrcode'); setTimeout(()=>{document.getElementById('qr-sel').value='${e.id}'}, 100)" title="Gerar QR" class="p-2 bg-purple-50 text-purple-600 rounded-lg hover:bg-purple-100 transition-colors">
+                <i data-lucide="qr-code" class="w-4 h-4"></i>
+            </button>` : '';
+
+        const deleteBtn = isAdmin ? 
+            `<button onclick="deleteEvent(${e.id})" title="Excluir" class="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors">
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+            </button>` : '';
+
+        return `
         <div class="flex justify-between items-center p-4 bg-white border border-gray-100 rounded-xl shadow-sm hover:shadow-md transition-all">
             <div class="flex items-center gap-4">
-                <div class="w-12 h-12 rounded-lg bg-gray-100 overflow-hidden hidden sm:block flex-shrink-0">
-                    <img src="${e.image_url || 'https://via.placeholder.com/150'}" 
-                         onerror="this.style.display='none'" 
-                         class="w-full h-full object-cover">
+                <div class="w-12 h-12 rounded-lg bg-gray-100 overflow-hidden hidden sm:block">
+                    <img src="${e.image_url || ''}" onerror="this.style.display='none'" class="w-full h-full object-cover">
                 </div>
                 
-                <div class="min-w-0">
-                    <h4 class="font-bold text-gray-800 truncate">${e.name}</h4>
-                    <p class="text-xs text-gray-500 flex items-center gap-1">
+                <div>
+                    <h4 class="font-bold text-gray-800">${e.name}</h4>
+                    <p class="text-xs text-gray-500">
                         ${new Date(e.date).toLocaleDateString()} • 
                         <span class="font-bold text-brand-600">${e.enrolled_count || 0} inscritos</span>
                     </p>
                 </div>
             </div>
 
-            <div class="flex items-center gap-2 flex-shrink-0">
+            <div class="flex items-center gap-2">
                 <button onclick="viewEventAttendees(${e.id}, '${e.name}')" title="Ver Inscritos" class="flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-600 text-xs font-bold rounded-lg hover:bg-blue-100 transition-colors">
-                    <i data-lucide="users" class="w-4 h-4"></i> Ver Lista
+                    <i data-lucide="users" class="w-3 h-3"></i> Ver Lista
                 </button>
                 
-                <button onclick="editEvent(${e.id})" title="Editar" class="p-2 bg-yellow-50 text-yellow-600 rounded-lg hover:bg-yellow-100 transition-colors">
+                ${qrBtn}
+
+               <button onclick="editEvent('${e.id}')" title="Editar" class="p-2 bg-yellow-50 text-yellow-600 rounded-lg hover:bg-yellow-100 transition-colors">
                     <i data-lucide="pencil" class="w-4 h-4"></i>
                 </button>
-
-                <button onclick="deleteEvent(${e.id})" title="Excluir" class="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors">
-                    <i data-lucide="trash-2" class="w-4 h-4"></i>
-                </button>
+                
+                ${deleteBtn}
             </div>
         </div>
-    `).join('');
+    `}).join('');
     
-    // Recarrega os ícones do Lucide
     lucide.createIcons();
 }
 
@@ -284,35 +325,70 @@ function previewImage(input) {
         if(nameDisplay) nameDisplay.classList.add('hidden');
     }
 }
-
 function editEvent(eventId) {
     const event = state.events.find(e => e.id == eventId);
     if(!event) return;
+
+    console.log("Editando evento:", event); 
+
     navigateTo('admin-event-form');
     
-    document.getElementById('evt-name').value = event.name;
-    document.getElementById('evt-desc').value = event.description;
-    const d = new Date(event.date);
-    document.getElementById('evt-date').value = d.toISOString().split('T')[0];
-    document.getElementById('evt-time').value = d.toTimeString().substring(0,5);
-    document.getElementById('evt-loc').value = event.location;
-    document.getElementById('evt-price').value = event.price;
-    document.getElementById('evt-cap').value = event.capacity || '';
-    if(document.getElementById('evt-days')) document.getElementById('evt-days').value = event.required_checkins || 1;
+    const setVal = (id, value) => {
+        const el = document.getElementById(id);
+        if (el) el.value = value;
+    };
+
+    setVal('evt-name', event.name);
+    setVal('evt-desc', event.description || '');
+    setVal('evt-loc', event.location || '');
+    setVal('evt-price', event.price || 0);
+    setVal('evt-cap', event.capacity || '');
+    setVal('evt-hours', event.event_hours || 0);
+    setVal('evt-days', event.required_checkins || 1);
+    
+    if (event.date) {
+        const d = new Date(event.date);
+        if(!isNaN(d)) {
+            const dateStr = d.toISOString().split('T')[0];
+            setVal('evt-date', dateStr);
+            
+            let endDateStr = dateStr;
+            if (event.end_date) {
+                const endD = new Date(event.end_date);
+                if(!isNaN(endD)) endDateStr = endD.toISOString().split('T')[0];
+            }
+            setVal('evt-date-end', endDateStr);
+            
+            setVal('evt-time', d.toTimeString().substring(0,5));
+        }
+    }
+
+    if (event.end_time) {
+        setVal('evt-end-time', event.end_time.substring(0,5));
+    }
 
     const ui = document.getElementById('upload-ui');
     const img = document.getElementById('image-preview');
-    if (event.image_url && event.image_url.trim() !== "") {
-        img.src = event.image_url; img.classList.remove('hidden'); ui.classList.add('opacity-0');
-    } else {
-        img.src = ""; img.classList.add('hidden'); ui.classList.remove('opacity-0');
+    if (img && ui) {
+        if (event.image_url && event.image_url.trim() !== "") {
+            img.src = event.image_url;
+            img.classList.remove('hidden');
+            ui.classList.add('opacity-0');
+        } else {
+            img.src = "";
+            img.classList.add('hidden');
+            ui.classList.remove('opacity-0');
+        }
     }
 
     currentEditId = eventId;
+    
     const btn = document.querySelector('#page-admin-event-form form button');
-    if(btn) { btn.innerText = "Salvar Alterações"; btn.className = "w-full bg-yellow-600 text-white py-4 rounded-xl font-bold text-lg shadow-lg hover:bg-yellow-700 transition-all"; }
-}
-
+    if(btn) {
+        btn.innerText = "Salvar Alterações";
+        btn.className = "w-full bg-yellow-600 text-white py-4 rounded-xl font-bold text-lg shadow-lg hover:bg-yellow-700 transition-all";
+    }
+} 
 function cancelEventForm() {
     currentEditId = null;
     const form = document.querySelector('#page-admin-event-form form');
@@ -329,25 +405,48 @@ function cancelEventForm() {
 
 async function handleEventSubmit(e) {
     e.preventDefault();
+    
     const btn = e.target.querySelector('button');
     const originalText = btn.innerText;
-    btn.innerText = "Enviando...";
+    btn.innerText = "Salvando...";
     btn.disabled = true;
 
+    // Função auxiliar segura para pegar valores
+    const getValue = (id) => {
+        const el = document.getElementById(id);
+        return el ? el.value : '';
+    };
+
     const formData = new FormData();
-    formData.append('name', document.getElementById('evt-name').value);
-    formData.append('description', document.getElementById('evt-desc').value);
-    formData.append('date', document.getElementById('evt-date').value);
-    formData.append('time', document.getElementById('evt-time').value);
-    formData.append('location', document.getElementById('evt-loc').value);
-    formData.append('price', document.getElementById('evt-price').value);
-    formData.append('capacity', document.getElementById('evt-cap').value);
-    formData.append('required_checkins', document.getElementById('evt-days') ? document.getElementById('evt-days').value : 1);
-
-    const fileInput = document.getElementById('evt-img-file');
-    if (fileInput && fileInput.files[0]) formData.append('image', fileInput.files[0]);
-
+    
     try {
+        // Campos Básicos
+        formData.append('name', getValue('evt-name'));
+        formData.append('description', getValue('evt-desc'));
+        formData.append('location', getValue('evt-loc'));
+        formData.append('price', getValue('evt-price'));
+        formData.append('capacity', getValue('evt-cap'));
+        
+        // Campos Numéricos (com fallback para 0 ou 1)
+        formData.append('event_hours', getValue('evt-hours') || 0);
+        formData.append('required_checkins', getValue('evt-days') || 1);
+
+        // --- CORREÇÃO DE DATAS E HORÁRIOS ---
+        formData.append('date', getValue('evt-date'));
+        formData.append('time', getValue('evt-time'));
+        
+        // Garante o envio explícito do Término
+        formData.append('end_date', getValue('evt-date-end')); 
+        formData.append('end_time', getValue('evt-end-time')); 
+        // ------------------------------------
+
+        // Imagem (opcional)
+        const fileInput = document.getElementById('evt-img-file');
+        if (fileInput && fileInput.files[0]) {
+            formData.append('image', fileInput.files[0]);
+        }
+
+        // Define se é CRIAÇÃO ou ATUALIZAÇÃO
         let url = 'api_create_event.php';
         if (currentEditId) {
             url = 'api_update_event.php';
@@ -358,101 +457,20 @@ async function handleEventSubmit(e) {
         const data = await res.json();
 
         if (data.success) {
-            alert(currentEditId ? "✅ Atualizado!" : "✅ Criado!");
-            e.target.reset();
+            alert(currentEditId ? "✅ Atualizado com sucesso!" : "✅ Criado com sucesso!");
             cancelEventForm(); 
             await fetchEvents();
+            if(typeof renderAdminStatsOverview === 'function') renderAdminStatsOverview();
         } else {
-            alert("Erro: " + data.message);
+            alert("Erro do Servidor: " + data.message);
         }
+
     } catch (err) {
+        console.error(err);
         alert("Erro de conexão.");
     } finally {
-        if (!currentEditId) { btn.innerText = originalText; btn.disabled = false; }
-    }
-}
-
-async function deleteEvent(eventId) {
-    if (!confirm("⚠️ Excluir evento?")) return;
-    try {
-        const res = await fetch('api_delete_event.php', {
-            method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ id: eventId })
-        });
-        const data = await res.json();
-        if(data.success) { alert("Excluído!"); await fetchEvents(); renderAdminStatsOverview(); }
-    } catch(e) { alert("Erro ao excluir."); }
-}
-
-async function viewEventAttendees(eventId, eventName) {
-    navigateTo('admin-attendees');
-    document.getElementById('attendees-event-title').innerText = eventName;
-    const tbody = document.getElementById('attendees-list-body');
-    tbody.innerHTML = '<tr><td colspan="4" class="p-12 text-center"><div class="flex justify-center"><i data-lucide="loader-2" class="animate-spin text-brand-600 w-8 h-8"></i></div></td></tr>';
-    lucide.createIcons();
-
-    try {
-        const res = await fetch(`api_attendees.php?event_id=${eventId}`);
-        const attendees = await res.json();
-        document.getElementById('attendees-count').innerText = attendees.length;
-
-        if(attendees.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4" class="p-12 text-center text-gray-400 italic bg-gray-50 rounded-lg">Nenhum inscrito neste evento ainda.</td></tr>';
-            return;
-        }
-
-        tbody.innerHTML = attendees.map(u => {
-            const checkins = parseInt(u.checkin_count);
-            const required = parseInt(u.required_checkins) || 1;
-            const pct = Math.min(100, Math.floor((checkins/required)*100));
-            
-            const isPending = u.payment_status === 'pending';
-            const statusBadge = isPending 
-                ? '<span class="ml-2 px-2 py-0.5 bg-yellow-100 text-yellow-700 text-[10px] font-bold uppercase rounded border border-yellow-200">Pendente</span>' 
-                : '<span class="ml-2 px-2 py-0.5 bg-green-100 text-green-700 text-[10px] font-bold uppercase rounded border border-green-200">Pago</span>';
-
-            let barColor = pct >= 75 ? 'bg-green-500' : 'bg-yellow-400';
-            let textColor = pct >= 75 ? 'text-green-600' : 'text-gray-500';
-            const certButton = isPending 
-                ? `<span class="text-xs text-gray-400 italic">Aguardando Pgto</span>`
-                : `<button onclick="adminOpenCert(${u.user_id}, ${eventId}, '${u.name}')" class="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 hover:border-brand-300 hover:bg-white hover:shadow-sm transition-all bg-gray-50 group"><i data-lucide="award" class="w-4 h-4 text-gray-400 group-hover:text-brand-600"></i><span class="text-xs font-bold text-gray-500 group-hover:text-brand-700">Certificado</span></button>`;
-
-            return `
-            <tr class="hover:bg-gray-50 border-b border-gray-100 ${isPending ? 'bg-yellow-50/30' : ''}">
-                <td class="p-4 align-middle">
-                    <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center text-sm font-bold border border-brand-200 uppercase">${u.name.charAt(0)}</div>
-                        <div class="flex flex-col"><span class="font-bold text-gray-900 text-sm flex items-center gap-2">${u.name} ${statusBadge}</span><span class="text-xs text-gray-500">${u.email}</span></div>
-                    </div>
-                </td>
-                <td class="p-4 align-middle">
-                    <div class="w-full max-w-[160px]">
-                        <div class="flex justify-between text-xs mb-1 font-bold"><span class="${textColor}">${pct}%</span><span class="text-gray-400 font-normal">${checkins}/${required} aulas</span></div>
-                        <div class="w-full bg-gray-100 rounded-full h-2 overflow-hidden shadow-inner"><div class="${barColor} h-2 rounded-full transition-all duration-500" style="width: ${pct}%"></div></div>
-                    </div>
-                </td>
-                <td class="p-4 align-middle text-sm"><div class="text-gray-600 font-medium">${new Date(u.enrolled_at).toLocaleDateString()}</div><div class="text-xs text-gray-400">${new Date(u.enrolled_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</div></td>
-                <td class="p-4 align-middle text-right">${certButton}</td>
-            </tr>`;
-        }).join('');
-        lucide.createIcons();
-    } catch(e) { tbody.innerHTML = '<tr><td colspan="4" class="p-8 text-center text-red-500">Erro ao carregar lista.</td></tr>'; }
-}
-async function loadAdminUsers() {
-    const list = document.getElementById('admin-users-list');
-    list.innerHTML = '<tr><td colspan="4" class="p-6 text-center"><i data-lucide="loader-2" class="animate-spin mx-auto text-brand-600"></i></td></tr>';
-    lucide.createIcons();
-
-    try {
-        const res = await fetch('api_users.php');
-        if(res.ok) {
-            state.usersList = await res.json();
-            
-            renderUsersTable(state.usersList);
-        } else {
-            throw new Error("Falha na API Users");
-        }
-    } catch(e) {
-        list.innerHTML = '<tr><td colspan="4" class="p-6 text-center text-red-500">Erro ao carregar usuários.</td></tr>';
+        btn.innerText = originalText;
+        btn.disabled = false;
     }
 }
 
@@ -501,43 +519,59 @@ function filterUsersTable(text) {
 function filterEvents(val, gridId) {
     const filtered = state.events.filter(e => e.name.toLowerCase().includes(val.toLowerCase()));
     renderCards(filtered, gridId);
-}
-function renderCards(evs, id) {
+}function renderCards(evs, id) {
     const c = document.getElementById(id);
     if(!c) return;
     const fallback = 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=800';
 
     c.innerHTML = evs.length ? evs.map(e => {
-        // Lógica das Estrelas
         const rating = parseFloat(e.avg_rating || 0);
         const starIcon = rating > 0 ? '⭐ ' + rating.toFixed(1) : 'Novo';
         const starClass = rating > 0 ? 'text-yellow-500 bg-yellow-50' : 'text-blue-500 bg-blue-50';
 
+        const start = new Date(e.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        const end = e.end_time ? e.end_time.substring(0, 5) : '??';
+
         return `
         <div class="bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all border border-gray-100 overflow-hidden flex flex-col h-full relative">
+            
             <div class="h-48 bg-gray-200 relative overflow-hidden">
                 <img src="${e.image_url || fallback}" onerror="this.src='${fallback}'" class="w-full h-full object-cover group-hover:scale-110 transition-transform">
-                <div class="absolute top-3 right-3 bg-white/90 px-2 py-1 rounded text-xs font-bold">${new Date(e.date).toLocaleDateString()}</div>
+                
+                <div class="absolute top-3 right-3 bg-white/90 px-2 py-1 rounded text-xs font-bold">
+                    ${new Date(e.date).toLocaleDateString()}
+                </div>
                 
                 <div class="absolute bottom-3 left-3 px-2 py-1 rounded-lg text-xs font-bold ${starClass} shadow-sm border border-white/50">
                     ${starIcon}
                 </div>
             </div>
+            
             <div class="p-6 flex flex-col flex-1">
                 <h3 class="font-bold text-lg mb-2">${e.name}</h3>
+
+                <div class="flex items-center gap-2 text-gray-500 text-xs mb-3 font-medium">
+                    <i data-lucide="clock" class="w-3 h-3 text-brand-500"></i>
+                    <span>${start} às ${end}</span>
+                </div>
+
                 <p class="text-sm text-gray-500 mb-4 line-clamp-2">${e.description}</p>
+                
                 <div class="mt-auto flex justify-between items-center pt-4 border-t">
                     <span class="font-bold text-brand-600">${parseFloat(e.price)>0 ? 'R$ '+e.price : 'Grátis'}</span>
                     <button onclick="openEventModal(${e.id})" class="bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-bold">Ver Detalhes</button>
                 </div>
             </div>
-        </div>
-    `;}).join('') : '<p class="col-span-full text-center text-gray-400 py-10">Sem eventos.</p>';
+        </div>`;    
+    }).join('') : '<p class="col-span-full text-center text-gray-400 py-10">Sem eventos.</p>';
+
 }
 async function loadMyEvents() {
     const grid = document.getElementById('dashboard-grid');
+    if (!grid) return;
     
-    if(!state.enrollments.length) { 
+    // Verifica se a lista está vazia
+    if(!state.enrollments || !state.enrollments.length) { 
         grid.innerHTML = `
             <div class="col-span-full flex flex-col items-center justify-center py-16 bg-white rounded-3xl border-2 border-dashed border-gray-200 text-center">
                 <div class="bg-gray-50 p-4 rounded-full mb-4"><i data-lucide="ticket" class="w-12 h-12 text-gray-400"></i></div>
@@ -551,67 +585,125 @@ async function loadMyEvents() {
 
     const fallbackImage = 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800';
 
-    grid.innerHTML = state.enrollments.map(e => {
-        const dateObj = new Date(e.date);
-        const day = dateObj.getDate();
-        const month = dateObj.toLocaleDateString('pt-BR', { month: 'short' }).toUpperCase().replace('.', '');
+    try {
+        grid.innerHTML = state.enrollments.map(e => {
+            if (!e.date) return ''; 
+
+            let dateObj;
+            let isPast = false;
+            let isStarted = false;
+
+            try {
+                // Tenta criar a data de início
+                dateObj = new Date(e.date);
+                
+                // Lógica de Data + Hora de Término
+                const dateOnly = e.date.length >= 10 ? e.date.substring(0, 10) : e.date;
+                const timeOnly = e.end_time ? e.end_time : '23:59:59';
+                
+                // Cria data de fim específica
+                const endFullDate = new Date(`${dateOnly}T${timeOnly}`);
+                
+                // Verifica validade das datas
+                if(!isNaN(endFullDate.getTime()) && !isNaN(dateObj.getTime())) {
+                     const now = new Date();
+                     isPast = now > endFullDate;
+                     isStarted = now >= dateObj && !isPast; // Começou e não acabou
+                } else {
+                     // Fallback se der erro na conversão
+                     isPast = new Date() > dateObj; 
+                }
+
+            } catch (err) {
+                console.error("Erro data:", err);
+                dateObj = new Date(); 
+            }
+
+            const day = dateObj.getDate();
+            const month = dateObj.toLocaleDateString('pt-BR', { month: 'short' }).toUpperCase().replace('.', '');
+            const start = dateObj.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            const end = e.end_time ? e.end_time.substring(0, 5) : '??';
+            const isPending = e.payment_status === 'pending';
+
+            // --- LÓGICA DE STATUS (Badge no topo da imagem) ---
+            let statusHtml = '';
+            if (isPending) {
+                statusHtml = '<span class="text-yellow-700 bg-yellow-100 px-2 py-1 rounded-lg text-xs font-bold border border-yellow-200 flex items-center gap-1"><i data-lucide="clock" class="w-3 h-3"></i> Pendente</span>';
+            } else if (isPast) {
+                statusHtml = '<span class="text-gray-700 bg-gray-100 px-2 py-1 rounded-lg text-xs font-bold border border-gray-200 flex items-center gap-1"><i data-lucide="check-circle-2" class="w-3 h-3"></i> Concluído</span>';
+            } else if (isStarted) {
+                statusHtml = '<span class="text-blue-700 bg-blue-100 px-2 py-1 rounded-lg text-xs font-bold border border-blue-200 flex items-center gap-1"><i data-lucide="play-circle" class="w-3 h-3"></i> Acontecendo</span>';
+            } else {
+                statusHtml = '<span class="text-green-700 bg-green-100 px-2 py-1 rounded-lg text-xs font-bold border border-green-200 flex items-center gap-1"><i data-lucide="calendar-check" class="w-3 h-3"></i> Confirmado</span>';
+            }
+
+            // --- LÓGICA DOS BOTÕES ---
+            let buttonsHtml = '';
+
+            if (isPending) {
+                buttonsHtml = `
+                    <button onclick="initPixPayment(${e.id})" class="flex-1 py-2.5 bg-yellow-500 text-white rounded-xl font-bold shadow-lg shadow-yellow-200 hover:bg-yellow-600 transition-all flex items-center justify-center gap-2"><i data-lucide="qr-code" class="w-4 h-4"></i> Pagar</button>
+                    <button onclick="cancelEnrollment(${e.id})" class="px-3 py-2 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 border border-red-100"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
+                `;
+            } else if (isPast) {
+                buttonsHtml = `
+                    <button onclick="openReviewModal(${e.id})" class="flex-1 py-2.5 bg-blue-50 text-blue-700 border border-blue-100 rounded-xl font-bold hover:bg-blue-100 flex items-center justify-center gap-2"><i data-lucide="star" class="w-4 h-4"></i> Avaliar</button>
+                    <button onclick="openCert('${e.name}', '${e.date}', ${e.id})" class="px-3 py-2 bg-amber-50 text-amber-700 rounded-xl hover:bg-amber-100 border border-amber-200"><i data-lucide="award" class="w-5 h-5"></i></button>
+                `;
+            } else if (isStarted) {
+                // Evento EM ANDAMENTO
+                buttonsHtml = `
+                    <button onclick="navigateTo('user-scanner')" class="flex-1 py-2.5 bg-brand-600 text-white rounded-xl font-bold hover:bg-brand-700 shadow-lg shadow-brand-200 flex items-center justify-center gap-2"><i data-lucide="scan" class="w-4 h-4"></i> Check-in</button>
+                `;
+            } else {
+                // Evento FUTURO
+                buttonsHtml = `
+                    <button disabled class="flex-1 py-2.5 bg-gray-100 text-gray-400 border border-gray-200 rounded-xl font-bold cursor-not-allowed flex items-center justify-center gap-2"><i data-lucide="calendar-clock" class="w-4 h-4"></i> Em breve</button>
+                    <button onclick="cancelEnrollment(${e.id})" class="px-3 py-2 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 border border-red-100"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
+                `;
+            }
+
+            return `
+            <div class="group bg-white rounded-3xl shadow-sm hover:shadow-xl transition-all duration-300 border ${isPending ? 'border-yellow-300 ring-2 ring-yellow-50' : 'border-gray-100'} overflow-hidden flex flex-col h-full relative">
+                
+                <div class="h-40 bg-gray-200 relative">
+                    <img src="${e.image_url || fallbackImage}" 
+                         onerror="this.src='${fallbackImage}'" 
+                         class="w-full h-full object-cover ${isPending || isPast ? 'grayscale opacity-80' : ''}">
+                    
+                    <div class="absolute top-4 right-4 bg-white/95 backdrop-blur rounded-xl p-2 text-center shadow-lg min-w-[60px]">
+                        <span class="block text-sm font-bold text-gray-500 uppercase tracking-wider">${month}</span>
+                        <span class="block text-2xl font-extrabold text-gray-900 leading-none">${day}</span>
+                    </div>
+                    
+                    <div class="absolute bottom-3 left-3">${statusHtml}</div>
+                </div>
+                
+                <div class="p-5 flex flex-col flex-1">
+                    <h3 class="font-bold text-lg mb-1 text-gray-900 line-clamp-1">${e.name}</h3>
+                    
+                    <div class="flex items-center gap-2 text-gray-500 text-xs mb-3 font-medium">
+                        <i data-lucide="clock" class="w-3 h-3 text-brand-500"></i>
+                        <span>${start} às ${end}</span>
+                    </div>
+
+                    <div class="flex items-center gap-2 text-gray-500 text-sm mb-4">
+                        <i data-lucide="map-pin" class="w-4 h-4 text-brand-500"></i>
+                        <span class="truncate">${e.location || 'Online'}</span>
+                    </div>
+                    
+                    <div class="mt-auto pt-4 border-t border-gray-100 flex gap-2">
+                        ${buttonsHtml}
+                    </div>
+                </div>
+            </div>`;
+        }).join('');
         
-        // 1. Verifica Status
-        const isPending = e.payment_status === 'pending';
-        // 2. Verifica se o evento JÁ PASSOU (Data atual > Data do evento)
-        const isPast = new Date() > new Date(e.date);
-
-        // Badge Visual
-        const statusHtml = isPending 
-            ? '<span class="text-yellow-700 bg-yellow-100 px-2 py-1 rounded-lg text-xs font-bold border border-yellow-200 flex items-center gap-1"><i data-lucide="clock" class="w-3 h-3"></i> Pendente</span>' 
-            : (isPast 
-                ? '<span class="text-gray-700 bg-gray-100 px-2 py-1 rounded-lg text-xs font-bold border border-gray-200 flex items-center gap-1"><i data-lucide="check-circle-2" class="w-3 h-3"></i> Concluído</span>'
-                : '<span class="text-green-700 bg-green-100 px-2 py-1 rounded-lg text-xs font-bold border border-green-200 flex items-center gap-1"><i data-lucide="calendar-check" class="w-3 h-3"></i> Confirmado</span>');
-
-        // Lógica dos Botões
-        let buttonsHtml = '';
-
-        if (isPending) {
-            // CENÁRIO 1: Falta Pagar
-            buttonsHtml = `
-                <button onclick="initPixPayment(${e.id})" class="flex-1 py-2.5 bg-yellow-500 text-white rounded-xl font-bold shadow-lg shadow-yellow-200 hover:bg-yellow-600 transition-all flex items-center justify-center gap-2"><i data-lucide="qr-code" class="w-4 h-4"></i> Pagar</button>
-                <button onclick="cancelEnrollment(${e.id})" class="px-3 py-2 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 border border-red-100"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
-            `;
-        } else if (isPast) {
-            // CENÁRIO 2: Evento já passou (Avaliar + Certificado)
-            buttonsHtml = `
-                <button onclick="openReviewModal(${e.id})" class="flex-1 py-2.5 bg-blue-50 text-blue-700 border border-blue-100 rounded-xl font-bold hover:bg-blue-100 flex items-center justify-center gap-2"><i data-lucide="star" class="w-4 h-4"></i> Avaliar</button>
-                <button onclick="openCert('${e.name}', '${e.date}', ${e.id})" class="px-3 py-2 bg-amber-50 text-amber-700 rounded-xl hover:bg-amber-100 border border-amber-200"><i data-lucide="award" class="w-5 h-5"></i></button>
-            `;
-        } else {
-            // CENÁRIO 3: Evento Futuro Confirmado (Apenas Cancelar ou Ver)
-            buttonsHtml = `
-                <button disabled class="flex-1 py-2.5 bg-gray-100 text-gray-400 border border-gray-200 rounded-xl font-bold cursor-not-allowed flex items-center justify-center gap-2"><i data-lucide="calendar-clock" class="w-4 h-4"></i> Em breve</button>
-                <button onclick="cancelEnrollment(${e.id})" class="px-3 py-2 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 border border-red-100"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
-            `;
-        }
-
-        return `
-        <div class="group bg-white rounded-3xl shadow-sm hover:shadow-xl transition-all duration-300 border ${isPending ? 'border-yellow-300 ring-2 ring-yellow-50' : 'border-gray-100'} overflow-hidden flex flex-col h-full relative">
-            <div class="h-40 bg-gray-200 relative">
-                <img src="${e.image_url || fallbackImage}" onerror="this.src='${fallbackImage}'" class="w-full h-full object-cover ${isPending || isPast ? 'grayscale opacity-80' : ''}">
-                <div class="absolute top-4 right-4 bg-white/95 backdrop-blur rounded-xl p-2 text-center shadow-lg min-w-[60px]">
-                    <span class="block text-sm font-bold text-gray-500 uppercase tracking-wider">${month}</span>
-                    <span class="block text-2xl font-extrabold text-gray-900 leading-none">${day}</span>
-                </div>
-                <div class="absolute bottom-3 left-3">${statusHtml}</div>
-            </div>
-            <div class="p-5 flex flex-col flex-1">
-                <h3 class="font-bold text-lg mb-1 text-gray-900 line-clamp-1">${e.name}</h3>
-                <div class="flex items-center gap-2 text-gray-500 text-sm mb-4">
-                    <i data-lucide="map-pin" class="w-4 h-4 text-brand-500"></i>
-                    <span class="truncate">${e.location || 'Online'}</span>
-                </div>
-                <div class="mt-auto pt-4 border-t border-gray-100 flex gap-2">${buttonsHtml}</div>
-            </div>
-        </div>`;
-    }).join('');
-    lucide.createIcons();
+        lucide.createIcons();
+    } catch (e) {
+        console.error("Erro fatal na renderização:", e);
+        grid.innerHTML = `<p class="col-span-full text-center text-red-500">Erro ao exibir ingressos. (Ver Console)</p>`;
+    }
 }
 
 function openEventModal(eventId) {
@@ -776,6 +868,7 @@ async function openCert(eventName, eventDate, eventId) {
 
 function openCertModalData(data, userName) {
     document.getElementById('cert-name').innerText = userName;
+    document.getElementById('cert-hours').innerText = data.event_hours;
     document.getElementById('cert-event').innerText = data.event_name;
     document.getElementById('cert-date').innerText = data.event_date;
     document.getElementById('cert-hash').innerText = data.code;
@@ -904,7 +997,6 @@ function filterUsersTable(text) {
 
     renderUsersTable(filtered);
 }
-// --- SISTEMA DE AVALIAÇÃO ---
 let currentReviewEventId = null;
 let currentRating = 0;
 
@@ -912,7 +1004,7 @@ function openReviewModal(eventId) {
     currentReviewEventId = eventId;
     currentRating = 0;
     document.getElementById('review-comment').value = '';
-    updateStarsUI(); // Reseta estrelas
+    updateStarsUI(); 
     
     const modal = document.getElementById('review-modal');
     modal.classList.remove('hidden');
@@ -966,4 +1058,28 @@ async function submitReview() {
             alert(data.message);
         }
     } catch(e) { alert("Erro de conexão."); }
+}
+function prepareCreateEvent() {
+    currentEditId = null;
+
+    const form = document.querySelector('#page-admin-event-form form');
+    if(form) form.reset();
+
+    const ui = document.getElementById('upload-ui');
+    const img = document.getElementById('image-preview');
+    if(img) { 
+        img.src = ""; 
+        img.classList.add('hidden'); 
+    }
+    if(ui) ui.classList.remove('opacity-0');
+
+    const btn = document.querySelector('#page-admin-event-form form button');
+    if(btn) {
+        btn.innerText = "Publicar Evento";
+        btn.className = "w-full bg-brand-600 text-white py-4 rounded-xl font-bold text-lg shadow-lg hover:bg-brand-700 transition-all";
+        btn.disabled = false;
+    }
+
+    navigateTo('admin-event-form'); 
+
 }
