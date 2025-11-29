@@ -1083,3 +1083,64 @@ function prepareCreateEvent() {
     navigateTo('admin-event-form'); 
 
 }
+async function loadAdminUsers() {
+    const list = document.getElementById('admin-users-list');
+    
+    list.innerHTML = '<tr><td colspan="4" class="p-6 text-center"><i data-lucide="loader-2" class="animate-spin mx-auto text-brand-600 w-8 h-8"></i></td></tr>';
+    lucide.createIcons();
+
+    try {
+        const res = await fetch('api_users.php');
+        if(res.ok) {
+            state.usersList = await res.json();
+            renderUsersTable(state.usersList);
+        } else {
+            throw new Error("Falha na API Users");
+        }
+    } catch(e) {
+        list.innerHTML = '<tr><td colspan="4" class="p-6 text-center text-red-500">Erro ao carregar usuários.</td></tr>';
+    }
+}
+
+function renderUsersTable(users) {
+    const list = document.getElementById('admin-users-list');
+    
+    if (users.length === 0) {
+        list.innerHTML = '<tr><td colspan="4" class="p-6 text-center text-gray-500">Nenhum usuário encontrado.</td></tr>';
+        return;
+    }
+
+    list.innerHTML = users.map(u => `
+        <tr class="hover:bg-gray-50 border-b border-gray-100 transition-colors">
+            <td class="p-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-full bg-gray-200 flex items-center justify-center font-bold text-sm text-gray-600 border border-gray-300 uppercase">
+                        ${u.name.charAt(0)}
+                    </div>
+                    <div class="font-bold text-gray-900">${u.name}</div>
+                </div>
+            </td>
+            
+            <td class="p-4 text-gray-600 text-sm">${u.email}</td>
+            
+            <td class="p-4">
+                <span class="px-3 py-1 text-xs font-bold rounded-full ${u.role === 'admin' ? 'bg-purple-100 text-purple-700' : (u.role === 'servidor' ? 'bg-blue-50 text-blue-700' : 'bg-gray-100 text-gray-700')}">
+                    ${u.role.toUpperCase()}
+                </span>
+            </td>
+            
+            <td class="p-4 text-right flex items-center justify-end gap-2">
+                ${state.user.email === u.email ? '<span class="text-xs text-gray-400 italic px-2">Você</span>' : 
+                `<select onchange="changeUserRole(${u.id}, this.value)" class="bg-white border border-gray-300 text-gray-700 text-xs rounded-lg p-2 shadow-sm cursor-pointer outline-none focus:ring-2 focus:ring-brand-200">
+                    <option value="user" ${u.role==='user'?'selected':''}>Usuário</option>
+                    <option value="servidor" ${u.role==='servidor'?'selected':''}>Servidor</option>
+                    <option value="admin" ${u.role==='admin'?'selected':''}>Admin</option>
+                 </select>
+                 <button onclick="deleteUser(${u.id})" title="Excluir Usuário" class="p-2 bg-white border border-red-200 text-red-600 rounded-lg hover:bg-red-50 transition-colors shadow-sm">
+                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                 </button>`}
+            </td>
+        </tr>`).join('');
+        
+    lucide.createIcons();
+}
