@@ -12,7 +12,6 @@ if (!isset($data['user_id']) || !isset($data['name'])) {
 }
 
 try {
-    // Atualiza apenas o nome (o email geralmente não se muda por segurança)
     $stmt = $conn->prepare("UPDATE users SET name = ? WHERE id = ?");
     
     if ($stmt->execute([$data['name'], $data['user_id']])) {

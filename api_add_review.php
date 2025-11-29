@@ -12,7 +12,7 @@ if (!isset($data['user_id']) || !isset($data['event_id']) || !isset($data['ratin
 }
 
 try {
-    // Verifica se já avaliou antes
+   
     $check = $conn->prepare("SELECT id FROM reviews WHERE user_id = ? AND event_id = ?");
     $check->execute([$data['user_id'], $data['event_id']]);
     

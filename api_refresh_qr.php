@@ -12,13 +12,11 @@ if (!$event_id) {
 }
 
 try {
-    // 1. Gera um token aleatório único
-    $token = bin2hex(random_bytes(16)); // Ex: a1b2c3d4...
+    $token = bin2hex(random_bytes(16)); 
     
-    // 2. Define validade para 35 segundos (30s + 5s de tolerância para internet lenta)
     $expires = date('Y-m-d H:i:s', strtotime('+35 seconds'));
 
-    // 3. Salva no banco
+   
     $stmt = $conn->prepare("UPDATE events SET qr_token = ?, qr_expires_at = ? WHERE id = ?");
     $stmt->execute([$token, $expires, $event_id]);
 

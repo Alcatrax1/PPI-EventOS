@@ -411,7 +411,6 @@ async function handleEventSubmit(e) {
     btn.innerText = "Salvando...";
     btn.disabled = true;
 
-    // Função auxiliar segura para pegar valores
     const getValue = (id) => {
         const el = document.getElementById(id);
         return el ? el.value : '';
@@ -420,33 +419,26 @@ async function handleEventSubmit(e) {
     const formData = new FormData();
     
     try {
-        // Campos Básicos
         formData.append('name', getValue('evt-name'));
         formData.append('description', getValue('evt-desc'));
         formData.append('location', getValue('evt-loc'));
         formData.append('price', getValue('evt-price'));
         formData.append('capacity', getValue('evt-cap'));
         
-        // Campos Numéricos (com fallback para 0 ou 1)
         formData.append('event_hours', getValue('evt-hours') || 0);
         formData.append('required_checkins', getValue('evt-days') || 1);
 
-        // --- CORREÇÃO DE DATAS E HORÁRIOS ---
         formData.append('date', getValue('evt-date'));
         formData.append('time', getValue('evt-time'));
         
-        // Garante o envio explícito do Término
         formData.append('end_date', getValue('evt-date-end')); 
         formData.append('end_time', getValue('evt-end-time')); 
-        // ------------------------------------
 
-        // Imagem (opcional)
         const fileInput = document.getElementById('evt-img-file');
         if (fileInput && fileInput.files[0]) {
             formData.append('image', fileInput.files[0]);
         }
 
-        // Define se é CRIAÇÃO ou ATUALIZAÇÃO
         let url = 'api_create_event.php';
         if (currentEditId) {
             url = 'api_update_event.php';
@@ -570,7 +562,6 @@ async function loadMyEvents() {
     const grid = document.getElementById('dashboard-grid');
     if (!grid) return;
     
-    // Verifica se a lista está vazia
     if(!state.enrollments || !state.enrollments.length) { 
         grid.innerHTML = `
             <div class="col-span-full flex flex-col items-center justify-center py-16 bg-white rounded-3xl border-2 border-dashed border-gray-200 text-center">
@@ -594,23 +585,18 @@ async function loadMyEvents() {
             let isStarted = false;
 
             try {
-                // Tenta criar a data de início
                 dateObj = new Date(e.date);
                 
-                // Lógica de Data + Hora de Término
                 const dateOnly = e.date.length >= 10 ? e.date.substring(0, 10) : e.date;
                 const timeOnly = e.end_time ? e.end_time : '23:59:59';
                 
-                // Cria data de fim específica
                 const endFullDate = new Date(`${dateOnly}T${timeOnly}`);
                 
-                // Verifica validade das datas
                 if(!isNaN(endFullDate.getTime()) && !isNaN(dateObj.getTime())) {
                      const now = new Date();
                      isPast = now > endFullDate;
-                     isStarted = now >= dateObj && !isPast; // Começou e não acabou
+                     isStarted = now >= dateObj && !isPast; 
                 } else {
-                     // Fallback se der erro na conversão
                      isPast = new Date() > dateObj; 
                 }
 
@@ -625,7 +611,6 @@ async function loadMyEvents() {
             const end = e.end_time ? e.end_time.substring(0, 5) : '??';
             const isPending = e.payment_status === 'pending';
 
-            // --- LÓGICA DE STATUS (Badge no topo da imagem) ---
             let statusHtml = '';
             if (isPending) {
                 statusHtml = '<span class="text-yellow-700 bg-yellow-100 px-2 py-1 rounded-lg text-xs font-bold border border-yellow-200 flex items-center gap-1"><i data-lucide="clock" class="w-3 h-3"></i> Pendente</span>';
@@ -637,7 +622,6 @@ async function loadMyEvents() {
                 statusHtml = '<span class="text-green-700 bg-green-100 px-2 py-1 rounded-lg text-xs font-bold border border-green-200 flex items-center gap-1"><i data-lucide="calendar-check" class="w-3 h-3"></i> Confirmado</span>';
             }
 
-            // --- LÓGICA DOS BOTÕES ---
             let buttonsHtml = '';
 
             if (isPending) {
@@ -651,12 +635,10 @@ async function loadMyEvents() {
                     <button onclick="openCert('${e.name}', '${e.date}', ${e.id})" class="px-3 py-2 bg-amber-50 text-amber-700 rounded-xl hover:bg-amber-100 border border-amber-200"><i data-lucide="award" class="w-5 h-5"></i></button>
                 `;
             } else if (isStarted) {
-                // Evento EM ANDAMENTO
                 buttonsHtml = `
                     <button onclick="navigateTo('user-scanner')" class="flex-1 py-2.5 bg-brand-600 text-white rounded-xl font-bold hover:bg-brand-700 shadow-lg shadow-brand-200 flex items-center justify-center gap-2"><i data-lucide="scan" class="w-4 h-4"></i> Check-in</button>
                 `;
             } else {
-                // Evento FUTURO
                 buttonsHtml = `
                     <button disabled class="flex-1 py-2.5 bg-gray-100 text-gray-400 border border-gray-200 rounded-xl font-bold cursor-not-allowed flex items-center justify-center gap-2"><i data-lucide="calendar-clock" class="w-4 h-4"></i> Em breve</button>
                     <button onclick="cancelEnrollment(${e.id})" class="px-3 py-2 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 border border-red-100"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
@@ -1143,4 +1125,80 @@ function renderUsersTable(users) {
         </tr>`).join('');
         
     lucide.createIcons();
+}async function viewEventAttendees(eventId, eventName) {
+    navigateTo('admin-attendees');
+    document.getElementById('attendees-event-title').innerText = eventName;
+    const tbody = document.getElementById('attendees-list-body');
+    
+    tbody.innerHTML = '<tr><td colspan="4" class="p-12 text-center"><i data-lucide="loader-2" class="animate-spin mx-auto w-8 h-8 text-brand-600"></i></td></tr>';
+    lucide.createIcons();
+
+    try {
+        const res = await fetch(`api_attendees.php?event_id=${eventId}`);
+        const attendees = await res.json();
+        document.getElementById('attendees-count').innerText = attendees.length;
+
+        if (attendees.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" class="p-12 text-center text-gray-400 italic bg-gray-50 rounded-lg">Nenhum inscrito neste evento ainda.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = attendees.map(u => {
+            const checkins = parseInt(u.checkin_count || 0);
+            const required = parseInt(u.required_checkins) || 1;
+            const pct = Math.min(100, Math.floor((checkins / required) * 100));
+            
+            const isPending = u.payment_status === 'pending';
+            const statusBadge = isPending 
+                ? '<span class="ml-2 px-2 py-0.5 bg-yellow-100 text-yellow-700 text-[10px] font-bold uppercase rounded border border-yellow-200">Pendente</span>' 
+                : '<span class="ml-2 px-2 py-0.5 bg-green-100 text-green-700 text-[10px] font-bold uppercase rounded border border-green-200">Pago</span>';
+
+            let barColor = 'bg-gray-300';
+            let textColor = 'text-gray-500';
+            if(pct >= 75) { barColor = 'bg-green-500'; textColor = 'text-green-600'; }
+            else if(pct > 0) { barColor = 'bg-yellow-400'; textColor = 'text-yellow-600'; }
+
+            const certButton = isPending 
+                ? `<span class="text-xs text-gray-400 italic">Aguardando Pgto</span>`
+                : `<button onclick="adminOpenCert(${u.user_id}, ${eventId}, '${u.name}')" class="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 hover:border-brand-300 hover:bg-white hover:shadow-sm transition-all bg-gray-50 group"><i data-lucide="award" class="w-4 h-4 text-gray-400 group-hover:text-brand-600"></i><span class="text-xs font-bold text-gray-500 group-hover:text-brand-700">Certificado</span></button>`;
+
+            return `
+            <tr class="hover:bg-gray-50 transition-colors border-b border-gray-100 ${isPending ? 'bg-yellow-50/30' : ''}">
+                
+                <td class="p-4 align-middle">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center text-sm font-bold border border-brand-200 uppercase">
+                            ${u.name.charAt(0)}
+                        </div>
+                        <div class="flex flex-col">
+                            <span class="font-bold text-gray-900 text-sm flex items-center gap-2">${u.name} ${statusBadge}</span>
+                            <span class="text-xs text-gray-500">${u.email}</span>
+                        </div>
+                    </div>
+                </td>
+
+                <td class="p-4 align-middle">
+                    <div class="w-full max-w-[160px]">
+                        <div class="text-xs flex justify-between mb-1">
+                            <span class="${textColor}">${pct}%</span>
+                            <span class="text-gray-400 font-normal">${checkins}/${required} aulas</span>
+                        </div>
+                        <div class="w-full bg-gray-100 rounded-full h-2 overflow-hidden shadow-inner">
+                            <div class="${barColor} h-2 rounded-full transition-all duration-500" style="width: ${pct}%"></div>
+                        </div>
+                    </div>
+                </td>
+
+                <td class="p-4 align-middle text-sm">
+                    <div class="text-gray-600 font-medium">${new Date(u.enrolled_at).toLocaleDateString()}</div>
+                    <div class="text-xs text-gray-400">${new Date(u.enrolled_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</div>
+                </td>
+
+                <td class="p-4 align-middle text-right">${certButton}</td>
+            </tr>`;
+        }).join('');
+        
+        lucide.createIcons();
+
+    } catch(e) { tbody.innerHTML = '<tr><td colspan="4" class="p-8 text-center text-red-500">Erro ao carregar lista.</td></tr>'; }
 }

@@ -10,7 +10,6 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 try {
-    // --- Validação de Entradas Obrigatórias ---
     if (!isset($_POST['name']) || empty($_POST['name'])) {
         throw new Exception("O nome do evento é obrigatório.");
     }
@@ -18,7 +17,6 @@ try {
         throw new Exception("A data do evento é obrigatória.");
     }
 
-    // --- Coleta e Sanitização de Dados ---
     $name = $_POST['name'];
     $description = $_POST['description'] ?? '';
     
@@ -32,14 +30,12 @@ try {
     $price = $_POST['price'] ?? 0;
     $days = $_POST['required_checkins'] ?? 1;
 
-    // --- Processamento do Upload da Imagem ---
     $imageUrl = ''; 
     if (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
         $file = $_FILES['image'];
-        $maxFileSize = 2 * 1024 * 1024; // 2MB
+        $maxFileSize = 2 * 1024 * 1024; 
         $allowedMimeTypes = ['image/jpeg', 'image/png', 'image/gif'];
 
-        // Validação de segurança do arquivo
         if ($file['size'] > $maxFileSize) {
             throw new Exception("O arquivo de imagem é muito grande (máximo 2MB).");
         }
@@ -61,7 +57,6 @@ try {
         }
     }
 
-    // --- Inserção no Banco de Dados ---
     $sql = "INSERT INTO events (name, description, date, end_time, location, price, image_url, required_checkins, capacity, event_hours) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     $stmt = $conn->prepare($sql);
     $stmt->execute([$name, $description, $dateTime, $endTime, $location, $price, $imageUrl, $days, $capacity, $hours]);
@@ -69,7 +64,7 @@ try {
     echo json_encode(["success" => true, "message" => "Evento criado com sucesso!"]);
 
 } catch (Exception $e) {
-    http_response_code(400); // Bad Request
+    http_response_code(400); 
     echo json_encode(["success" => false, "message" => $e->getMessage()]);
 }
 ?>
